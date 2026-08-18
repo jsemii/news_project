@@ -1,0 +1,70 @@
+# AGENTS.md
+
+## 1. 프로젝트 목적
+IT 직무는 정했지만 산업(금융/제조/플랫폼/유통/에너지 등)은 아직 정하지 못한 취준생을 위해,
+뉴스를 수집·구조화하고 사용자가 선택한 직무 관점에서 산업 변화가 어떤 영향을 미치는지
+연결해서 보여주는 맞춤형 뉴스 브리핑 서비스입니다.
+
+핵심 기능은 다음 3가지입니다.
+1. 뉴스 수집/저장 파이프라인
+2. AI 뉴스 구조화 (산업/직무 태깅, 요약)
+3. 직무별 맞춤 브리핑
+
+## 2. Frontend 기술
+- React (Vite 기반)
+- 위치: `frontend/`
+- 실행: `npm run dev`
+
+## 3. Backend 기술
+- Java 21 / Spring Boot
+- Gradle (Gradle Wrapper 사용, 로컬 Gradle 설치 불필요)
+- Spring Scheduler (`@Scheduled`) — 뉴스 수집 주기 실행
+- WebClient — 외부 뉴스 소스 호출
+- RSS 파서 — 뉴스 원본 수집
+- MyBatis — DB 접근
+- PostgreSQL — 데이터 저장
+- 위치: `backend/`
+- 실행: `./gradlew bootRun`
+
+## 4. Backend 기본 구조
+`backend/src/main/java/com/jobnews/` 하위에 기능별 패키지로 구성합니다.
+
+| 패키지 | 역할 |
+|---|---|
+| `collector` | 뉴스 수집 (RSS + WebClient + Scheduler) |
+| `news` | 뉴스 원본/구조화 데이터 도메인 |
+| `ai` | AI 뉴스 구조화 (산업/직무 태깅, 요약) |
+| `job` | 직무 도메인 |
+| `briefing` | 직무별 맞춤 브리핑 생성/조회 |
+| `config` | WebClient, Scheduler, MyBatis 등 설정 |
+
+새 도메인이 필요할 때만 패키지를 추가하고, 임의로 계층(예: `common`, `util`)을 먼저 만들지 않습니다.
+
+## 5. REST API 사용
+Frontend와 Backend는 REST API로 통신합니다. GraphQL, RPC 등 다른 방식은 사용하지 않습니다.
+Controller는 `@RestController` 기준으로 작성하고, 응답은 JSON을 기본으로 합니다.
+
+## 6. 불필요한 Library 추가 금지
+현재 기능 구현에 필요하지 않은 라이브러리는 추가하지 않습니다.
+새 의존성이 필요하면 build.gradle / package.json 변경 전에 먼저 왜 필요한지 설명합니다.
+
+## 7. Secret을 코드에 직접 작성하지 않기
+API 키, DB 비밀번호, 토큰 등은 소스 코드나 `application.yml`에 직접 하드코딩하지 않습니다.
+환경 변수 또는 `.env` / `application-local.yml` (Git에 커밋되지 않는 파일)로 분리합니다.
+
+## 8. 기존 파일을 대량으로 삭제하지 않기
+리팩터링이나 구조 변경이 필요해도 기존 파일을 한 번에 대량 삭제하지 않습니다.
+정말 불필요한 파일이라도 삭제 전에 어떤 파일을 왜 지우는지 먼저 설명하고 진행합니다.
+
+## 9. 큰 변경 전에 계획 먼저 설명하기
+여러 파일에 걸친 변경, 구조 변경, 새 의존성 추가처럼 영향 범위가 큰 작업은
+바로 구현하지 않고 먼저 계획(무엇을, 왜, 어떻게 바꿀지)을 설명한 뒤 진행합니다.
+
+## 10. 구현 후 Build 또는 테스트하기
+기능 구현 후에는 실제로 확인합니다.
+- Backend: `./gradlew build` 또는 `./gradlew bootRun`으로 정상 기동 확인
+- Frontend: `npm run build` 또는 `npm run dev`로 정상 동작 확인
+확인 없이 "구현 완료"로 보고하지 않습니다.
+
+## 11. 변경한 파일을 작업 마지막에 설명하기
+작업이 끝나면 이번에 생성/수정/삭제한 파일 목록을 정리해서 알려줍니다.

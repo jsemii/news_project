@@ -1,0 +1,20 @@
+# backend (Gradle/Maven)
+backend/build/
+backend/target/
+backend/.gradle/
+backend/out/
+*.class
+
+# frontend (Node)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# env
+.env
+*.local
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
