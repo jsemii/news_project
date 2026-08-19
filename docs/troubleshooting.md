@@ -70,3 +70,47 @@ Jsoup 기반 본문 크롤링 단계를 파이프라인에 추가(RSS 수집 →
 노출하지 않도록 설계했고, 이후 별도 컬럼으로 나눌 필요가 없다고 판단해 기존 `description`
 컬럼과 합쳤다(3번 항목 참고). "내부 전용, API 노출 금지"라는 원칙은 컬럼명이 바뀐 뒤에도
 그대로 유지된다.
+
+## 5. Jackson 클래스가 com.fasterxml.jackson 패키지에서 컴파일 오류
+#### 현상
+OpenAI 응답 JSON을 파싱하려고 `import com.fasterxml.jackson.databind.ObjectMapper;`,
+`import com.fasterxml.jackson.databind.JsonNode;`를 썼는데, 빌드 시
+`package com.fasterxml.jackson.databind does not exist`로 컴파일 자체가 실패했다.
+
+#### 원인
+`./gradlew dependencies --configuration compileClasspath`로 실제 의존성 트리를 확인해보니,
+이 프로젝트의 Spring Boot 4.1.0 환경은 `spring-boot-starter-jackson`을 통해 **Jackson 3**
+(`tools.jackson.core:jackson-databind:3.1.4`)을 쓰고 있었다. Jackson 3에서는 `ObjectMapper`,
+`JsonNode` 같은 핵심 클래스의 패키지가 기존 `com.fasterxml.jackson.databind`에서
+`tools.jackson.databind`로 바뀌었다(단, `@JsonProperty` 같은 애노테이션은 여전히
+`com.fasterxml.jackson.annotation` 패키지에 남아있어서 더 헷갈렸다).
+
+#### 해결
+import를 `tools.jackson.databind.ObjectMapper` / `tools.jackson.databind.JsonNode`로 수정했다.
+추가로 컴파일 시 `JsonNode.asText()`가 deprecated라는 경고가 떠서, jackson-databind 3.1.4의
+클래스 파일을 `javap`으로 직접 열어 대체 메서드가 `asString()`이라는 것을 확인하고 전부 교체했다.
+
+## 6. 규칙 기반 필터에 걸린 뉴스가 "미분석"으로 영원히 남아 무한 반복됨
+#### 현상
+`openai.batch-size`를 추가한 뒤, 남은 백로그를 다 처리할 때까지 `POST /api/structuring/run`을
+반복 호출하는 스크립트를 돌렸는데, `remainingBacklog`가 23에서 전혀 줄지 않고 매번 같은
+`{"totalFound":20,"filteredOut":20,"succeeded":0,"failed":0,"remainingBacklog":23}` 응답만
+반복해서 찍혔다. 스크립트가 사실상 무한 루프에 빠졌다(다행히 OpenAI 호출은 발생하지 않아
+비용 손실은 없었음).
+
+#### 원인
+`NewsRelevanceFilter`가 "분석할 가치 없음"으로 판단한 뉴스는 OpenAI를 호출하지 않고
+건너뛰기만 할 뿐, DB 어디에도 "이미 검토했음" 표시를 남기지 않았다. `selectUnanalyzedNews`는
+`news_analysis`에 행이 없는 뉴스를 "미분석"으로 판단하는데, 필터링된 뉴스는 애초에
+`news_analysis`에 행이 생기지 않으므로 매 배치마다 다시 조회되어 다시 필터링되는 과정이
+끝없이 반복됐다. 설계 시점에 "필터링 = 처리 완료"가 아니라 "필터링 = 아직 처리 안 함"으로
+잘못 취급한 것이 원인이다.
+
+#### 해결
+`news_filtered_out(news_id, filtered_at)` 테이블을 신설했다. `NewsStructuringService`가
+뉴스를 필터링할 때 `NewsAnalysisMapper.insertFilteredOut(newsId)`로 표시를 남기고,
+`selectUnanalyzedNews`/`countUnanalyzedNews` 쿼리는 `news_analysis`와 `news_filtered_out`
+둘 다에 없는 뉴스만 "미분석"으로 취급하도록 수정했다. 회귀 테스트
+(`NewsStructuringServiceTest.marksFilteredNewsAsFilteredOutSoItIsNotFetchedAgain`)를 추가하고,
+실제 서버로 남은 백로그(총 214건 중 22건 필터링 + 192건 분석)를 끝까지 처리해서
+`truly_unprocessed = 0`이 되는 것까지 SQL로 직접 확인했다.
