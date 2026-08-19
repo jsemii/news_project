@@ -23,3 +23,10 @@ collector:
     backoff-seconds: [2, 4, 8]
   schedule:
     fixed-delay-ms: 1800000 # 30분
+
+crawler:
+  selectors:
+    - name: 전자신문
+      selector: "#articleBody"
+    - name: 연합뉴스
+      selector: "div.story-news.article"
