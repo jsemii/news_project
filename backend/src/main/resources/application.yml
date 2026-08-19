@@ -30,3 +30,42 @@ crawler:
       selector: "#articleBody"
     - name: 연합뉴스
       selector: "div.story-news.article"
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  base-url: https://api.openai.com/v1
+  model: gpt-4o-mini
+  max-input-chars: 1500 # OpenAI에 넘기는 뉴스 원문 길이 제한 (비용 관리)
+  batch-size: 20 # 한 번 실행(스케줄 또는 수동 트리거)당 최대 처리 건수
+  retry:
+    max-attempts: 3
+    backoff-seconds: [2, 4, 8]
+  schedule:
+    cron: "0 0 8,13,18 * * *" # 매일 08:00 / 13:00 / 18:00
+
+ai:
+  industries: [금융, 제조, 반도체, "플랫폼/IT서비스", "유통/커머스", 에너지, "바이오/헬스케어", "공공/정부"]
+  jobs: [IT전산, 데이터분석, 백엔드]
+  filter:
+    # 제목에 아래 키워드가 하나라도 포함되면 AI 구조화 대상에서 제외한다 (LLM 호출 없이 판단).
+    exclude-title-keywords:
+      - 코스피
+      - 코스닥
+      - 환율
+      - 외국환시세
+      - "[인사]"
+      - "[부고]"
+      - 금리
+      - 국고채
+      - 유가
+      - 국제유가
+      - 마감시황
+      - 개장시황
+      - "[동정]"
+      - "[포토]"
+      - "[화보]"
+      - 로또
+    min-description-length: 200 # 본문이 이보다 짧으면 제외
+
+briefing:
+  top-n: 10 # 조회 시 하루 상위 몇 건까지 보여줄지
