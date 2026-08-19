@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+    [전체 흐름에서의 위치] "직무별 맞춤 브리핑" 조회 단계의 SQL입니다.
+-->
+<mapper namespace="com.jobnews.briefing.BriefingMapper">
+
+    <resultMap id="briefingRowMap" type="com.jobnews.briefing.BriefingRow">
+        <result column="news_id" property="newsId"/>
+        <result column="title" property="title"/>
+        <result column="url" property="url"/>
+        <result column="published_at" property="publishedAt"/>
+        <result column="summary" property="summary"/>
+        <result column="importance_score" property="importanceScore"/>
+        <result column="industries_csv" property="industriesCsv"/>
+    </resultMap>
+
+    <!--
+        news_analysis와 news를 조인해서 요약/중요도 점수를 가져오고, news_industry는
+        LEFT JOIN + string_agg(콤마로 이어붙이는 PostgreSQL 집계 함수)로 한 줄짜리
+        문자열로 합칩니다 — 뉴스 1건에 산업이 여러 개 붙어도 결과 행이 뉴스 1건당
+        1행으로 유지되게 하기 위함입니다(GROUP BY 필요). analyzed_at::date = CURRENT_DATE로
+        "오늘 분석된 것"만 걸러내고, importance_score 내림차순으로 정렬해 상위 N건만 가져옵니다.
+    -->
+    <select id="selectTopBriefings" resultMap="briefingRowMap">
+        SELECT
+            n.id AS news_id,
+            n.title AS title,
+            n.url AS url,
+            n.published_at AS published_at,
+            na.summary AS summary,
+            na.importance_score AS importance_score,
+            string_agg(DISTINCT ni.industry, ',') AS industries_csv
+        FROM news n
+        JOIN news_analysis na ON na.news_id = n.id
+        LEFT JOIN news_industry ni ON ni.news_id = n.id
+        WHERE na.analyzed_at::date = CURRENT_DATE
+        GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score
+        ORDER BY na.importance_score DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
