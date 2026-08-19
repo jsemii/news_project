@@ -1,3 +1,25 @@
 spring:
   application:
     name: backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/news_briefing
+    username: appuser
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
+
+rss:
+  sources:
+    - name: 전자신문
+      url: https://rss.etnews.com/Section901.xml
+    - name: 연합뉴스
+      url: https://www.yna.co.kr/rss/economy.xml
+
+collector:
+  retry:
+    max-attempts: 3
+    backoff-seconds: [2, 4, 8]
+  schedule:
+    fixed-delay-ms: 1800000 # 30분
