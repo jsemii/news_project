@@ -37,13 +37,21 @@ public class SummaryReviewController {
     @GetMapping("/summaries")
     @Operation(
             summary = "최근 AI 요약 목록 조회",
-            description = "collected_at 최신순으로 최대 50건. title/url/summary/importanceScore만 반환하며, "
+            description = "collected_at 최신순으로 최대 50건. title/url/summary/importanceScore와 함께, "
+                    + "같은 뉴스를 IT전산/데이터분석/백엔드 3개 직무 관점으로 재해석한 jobAnalyses도 반환합니다. "
                     + "기사 원문은 어디에도 저장하지 않으므로 응답에 포함되지 않습니다. 원문 확인은 url을 직접 열어서 합니다."
     )
     public List<SummaryReviewItem> summaries() {
         List<SummaryReviewRow> rows = summaryReviewMapper.selectRecentSummaries();
         return rows.stream()
-                .map(row -> new SummaryReviewItem(row.getTitle(), row.getUrl(), row.getSummary(), row.getImportanceScore()))
+                .map(row -> new SummaryReviewItem(
+                        row.getTitle(),
+                        row.getUrl(),
+                        row.getSummary(),
+                        row.getImportanceScore(),
+                        row.getJobAnalyses().stream()
+                                .map(j -> new JobAnalysisResult(j.getJob(), j.getWhyItMatters(), j.getKeySkills()))
+                                .toList()))
                 .toList();
     }
 }

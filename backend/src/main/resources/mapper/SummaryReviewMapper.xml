@@ -1,28 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <!--
-    [전체 흐름에서의 위치] QA 전용 조회 API의 SQL입니다. news와 news_analysis를
-    news_id로 join해서, AI 요약 품질을 개발 중에 확인할 수 있는 최소 정보만 뽑습니다.
+    [전체 흐름에서의 위치] QA 전용 조회 API의 SQL입니다. news/news_analysis/
+    news_job_analysis를 news_id로 join해서, AI 요약 품질(공통 요약 + 직무별 재해석)을
+    개발 중에 확인할 수 있는 최소 정보만 뽑습니다.
 -->
 <mapper namespace="com.jobnews.ai.SummaryReviewMapper">
 
     <resultMap id="summaryReviewRowMap" type="com.jobnews.ai.SummaryReviewRow">
+        <!--
+            id 태그: news_id를 "이 행이 어느 뉴스에 속하는지" 구분하는 기준으로 씁니다.
+            LEFT JOIN으로 뉴스 1건당 직무 수만큼(최대 3행) 뻥튀기된 결과를, MyBatis가
+            news_id가 같은 행끼리 다시 하나의 SummaryReviewRow로 묶고 jobAnalyses
+            컬렉션에 각 직무 행을 모아 담아줍니다.
+        -->
+        <id column="news_id" property="newsId"/>
         <result column="title" property="title"/>
         <result column="url" property="url"/>
         <result column="summary" property="summary"/>
         <result column="importance_score" property="importanceScore"/>
+        <collection property="jobAnalyses" ofType="com.jobnews.ai.JobAnalysisReviewRow">
+            <result column="job" property="job"/>
+            <result column="why_it_matters" property="whyItMatters"/>
+            <result column="key_skills" property="keySkills"/>
+        </collection>
     </resultMap>
 
     <!--
-        페이징 없이 collected_at(수집 시각) 최신순으로 50건만 가져옵니다. 원문(raw text)은
-        news 테이블에 애초에 없으므로 이 쿼리로도 절대 노출되지 않습니다.
+        먼저 서브쿼리(recent)로 collected_at(수집 시각) 최신순 50건의 news_id만 뽑고,
+        그 다음에 news_job_analysis를 LEFT JOIN합니다. LIMIT을 바깥쪽에서 걸면
+        LEFT JOIN으로 뻥튀기된 행(뉴스 1건당 최대 3행) 개수만큼 세어버려서 실제로는
+        16~17건의 뉴스만 나오는 문제가 생기므로, 반드시 "50건을 먼저 고정한 뒤에" join해야
+        합니다. LEFT JOIN을 쓴 이유는 혹시 직무별 재해석이 없는 뉴스(이론상 없어야 하지만
+        방어적으로)가 있어도 공통 요약 자체는 계속 보이게 하기 위함입니다.
     -->
     <select id="selectRecentSummaries" resultMap="summaryReviewRowMap">
-        SELECT n.title, n.url, na.summary, na.importance_score
-        FROM news n
-        JOIN news_analysis na ON na.news_id = n.id
-        ORDER BY n.collected_at DESC
-        LIMIT 50
+        SELECT recent.id AS news_id, recent.title, recent.url, recent.summary, recent.importance_score,
+               ja.job, ja.why_it_matters, ja.key_skills
+        FROM (
+            SELECT n.id, n.title, n.url, n.collected_at, na.summary, na.importance_score
+            FROM news n
+            JOIN news_analysis na ON na.news_id = n.id
+            ORDER BY n.collected_at DESC
+            LIMIT 50
+        ) recent
+        LEFT JOIN news_job_analysis ja ON ja.news_id = recent.id
+        ORDER BY recent.collected_at DESC, recent.id, ja.job
     </select>
 
 </mapper>
