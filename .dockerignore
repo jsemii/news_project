@@ -1,0 +1,10 @@
+# frontend/Dockerfile(nginx 서비스)은 레포 루트를 빌드 컨텍스트로 씁니다(infra/nginx/default.conf를
+# COPY해야 해서). Docker는 빌드 컨텍스트의 루트에 있는 .dockerignore만 보므로, frontend 폴더
+# 안이 아니라 여기(레포 루트)에 둡니다. backend 서비스는 backend/ 자체가 빌드 컨텍스트라
+# backend/.dockerignore를 따로 씁니다.
+frontend/node_modules/
+frontend/dist/
+backend/build/
+backend/.gradle/
+.git/
+docs/

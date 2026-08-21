@@ -10,6 +10,55 @@ services:
       - "5432:5432"
     volumes:
       - news-briefing-db-data:/var/lib/postgresql/data
+    # healthcheck: "컨테이너 프로세스가 시작됐다"와 "Postgres가 접속을 받을 준비가 됐다"는
+    # 다른 얘기입니다(초기화에 몇 초 걸림). pg_isready로 진짜 접속 가능한 상태인지 주기적으로
+    # 확인해서, backend가 이 상태를 기다렸다가(depends_on 참고) 뜨도록 합니다.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d news_briefing"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: news-briefing-backend
+    environment:
+      # DB_HOST=db: Docker 내부 네트워크에서 db 서비스는 "db"라는 이름으로 접속합니다
+      # (localhost가 아님 — application.yml의 ${DB_HOST:localhost} 참고).
+      DB_HOST: db
+      DB_PASSWORD: ${DB_PASSWORD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    # condition: service_healthy: db 컨테이너가 그냥 "떠있기만" 한 게 아니라 위 healthcheck를
+    # 통과할 때까지 기다린 뒤에 backend를 시작합니다. 이게 없으면 Postgres가 아직 접속을 못
+    # 받는 상태에서 backend가 먼저 접속을 시도하다가 실패하고 죽을 수 있습니다.
+    depends_on:
+      db:
+        condition: service_healthy
+    # 별도 actuator 의존성을 추가하지 않고, 이미 있는 GET /api/briefings를 헬스체크로
+    # 재사용합니다(200이 오면 "DB 연결까지 포함해서 정상"이라는 뜻).
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/briefings"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # 호스트에 포트를 노출하지 않습니다 — 외부에서 직접 접근할 이유가 없고, nginx만
+    # Docker 내부 네트워크로 backend:8080에 접근하면 충분합니다(공격 표면 최소화).
+
+  nginx:
+    build:
+      # 레포 루트를 빌드 컨텍스트로 씁니다 — frontend/Dockerfile이 frontend/ 밖에 있는
+      # infra/nginx/default.conf도 COPY해야 하기 때문입니다.
+      context: ../..
+      dockerfile: frontend/Dockerfile
+    container_name: news-briefing-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   news-briefing-db-data:
