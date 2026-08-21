@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchBriefings } from "../api/briefingApi";
 import JobSelector from "../components/JobSelector";
+import DateNavigator from "../components/DateNavigator";
+import { getTodayString } from "../utils/dateUtils";
 import "./BriefingPage.css";
 
 // [무엇을 받아서] ISO 형식 날짜/시간 문자열(예: "2026-08-18T16:30:00").
@@ -23,20 +25,23 @@ function formatDate(publishedAt) {
 export default function BriefingPage() {
   // selectedJob이 null이면 "전체"(일반 모드), 아니면 선택된 직무 이름 문자열입니다.
   const [selectedJob, setSelectedJob] = useState(null);
+  // selectedDate는 항상 "yyyy-MM-dd" 문자열입니다. 기본값은 오늘.
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
   const [briefings, setBriefings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // selectedJob이 바뀔 때마다(탭을 새로 누를 때마다) 서버에서 다시 목록을 받아옵니다.
-  // 백엔드가 이미 importance_score 내림차순으로 정렬해서 응답을 주므로, 프론트에서
-  // 다시 정렬할 필요는 없습니다.
+  // selectedJob이나 selectedDate가 바뀔 때마다(탭을 누르거나 날짜를 이동/선택할 때마다)
+  // 서버에서 다시 목록을 받아옵니다. 둘은 서로 독립적인 state라서, 예를 들어 "IT전산" +
+  // "8월 15일"처럼 두 조건을 동시에 적용해 조회할 수 있습니다. 백엔드가 이미
+  // importance_score 내림차순으로 정렬해서 응답을 주므로, 프론트에서 다시 정렬할 필요는 없습니다.
   useEffect(() => {
     let cancelled = false;
 
     setLoading(true);
     setError(null);
 
-    fetchBriefings(selectedJob)
+    fetchBriefings(selectedJob, selectedDate)
       .then((data) => {
         if (!cancelled) {
           setBriefings(data);
@@ -53,28 +58,35 @@ export default function BriefingPage() {
         }
       });
 
-    // cleanup: 사용자가 응답이 오기 전에 탭을 빠르게 여러 번 바꾸면, 먼저 보낸
-    // 요청의 응답이 나중에 도착해서 최신 탭 선택을 덮어쓸 수 있습니다(경쟁 상태).
+    // cleanup: 사용자가 응답이 오기 전에 탭/날짜를 빠르게 여러 번 바꾸면, 먼저 보낸
+    // 요청의 응답이 나중에 도착해서 최신 선택을 덮어쓸 수 있습니다(경쟁 상태).
     // cancelled 플래그로 "이미 지나간 요청"의 결과는 화면에 반영하지 않도록 막습니다.
     return () => {
       cancelled = true;
     };
-  }, [selectedJob]);
+  }, [selectedJob, selectedDate]);
+
+  const isToday = selectedDate === getTodayString();
+  const [, month, day] = selectedDate.split("-").map(Number);
+  const title = isToday ? "오늘의 브리핑" : `${month}월 ${day}일 브리핑`;
 
   return (
     <main className="briefing-page">
       <header className="briefing-page__header">
-        <h1 className="briefing-page__title">오늘의 브리핑</h1>
+        <h1 className="briefing-page__title">{title}</h1>
         <p className="briefing-page__subtitle">
-          관심 직무를 선택하면 그 직무 관점에서 오늘의 뉴스를 다시 읽어드립니다.
+          관심 직무를 선택하면 그 직무 관점에서 뉴스를 다시 읽어드립니다.
         </p>
-        <JobSelector selectedJob={selectedJob} onSelect={setSelectedJob} />
+        <div className="briefing-page__controls">
+          <JobSelector selectedJob={selectedJob} onSelect={setSelectedJob} />
+          <DateNavigator selectedDate={selectedDate} onChange={setSelectedDate} />
+        </div>
       </header>
 
       {loading && <p className="briefing-page__status">불러오는 중...</p>}
       {error && <p className="briefing-page__status briefing-page__status--error">{error}</p>}
       {!loading && !error && briefings.length === 0 && (
-        <p className="briefing-page__status">오늘 분석된 뉴스가 아직 없습니다.</p>
+        <p className="briefing-page__status">해당 날짜엔 브리핑이 없습니다.</p>
       )}
 
       <ul className="briefing-list">
