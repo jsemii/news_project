@@ -2,21 +2,18 @@ CREATE TABLE IF NOT EXISTS news (
     id           BIGSERIAL PRIMARY KEY,
     url          VARCHAR(2048) NOT NULL UNIQUE,
     title        VARCHAR(500)  NOT NULL,
-    description  TEXT,
     source       VARCHAR(100)  NOT NULL,
     published_at TIMESTAMP,
     collected_at TIMESTAMP     NOT NULL DEFAULT now()
 );
 
--- description 컬럼 참고: 한때 크롤링한 기사 본문을 담을 컬럼을 content_raw라는 별도 이름으로
--- 만들었었는데, description(원래는 RSS 짧은 요약용)과 굳이 나눌 필요가 없다고 판단해
--- content_raw의 값을 description으로 합치고 content_raw는 없앴다(2026-08-19, 수동 마이그레이션
--- 1회 적용 — 이 프로젝트는 Flyway 같은 마이그레이션 도구 없이 schema.sql 하나로 "지금 원하는
--- 최종 스키마"만 유지하기 때문에, 컬럼 이름을 바꾸는 것 같은 1회성 변경은 DB에 직접 적용하고
--- 이 파일은 항상 최종 형태만 남긴다).
--- description은 이제 크롤링 성공 시 기사 본문 전체, 실패 시 NULL이 들어간다. LLM(AI 구조화
--- 단계)의 입력 재료로만 쓰는 내부용 컬럼이며, API 응답에는 절대 그대로 노출하지 않는다
--- (저작권 문제 방지 목적).
+-- description 컬럼 이력: 한때 크롤링한 기사 본문 전체(또는 RSS 짧은 요약)를 이 컬럼에
+-- 저장했었는데, 원문을 DB에 영구 저장하는 것 자체가 저작권(복제권) 리스크가 있다고 판단해
+-- 완전히 제거했다(2026-08-19, 수동 마이그레이션 1회 적용 — 이 프로젝트는 Flyway 없이
+-- schema.sql 하나로 "지금 원하는 최종 스키마"만 유지하는 방식이라, 컬럼 삭제 같은 1회성
+-- 변경은 DB에 직접 적용하고 이 파일은 항상 최종 형태만 남긴다). 이제 원문은 AI 구조화
+-- 단계(ai 패키지)가 필요할 때마다 원문 URL을 직접 크롤링해서 메모리에서만 쓰고 바로
+-- 버리며, 어떤 테이블에도 저장하지 않는다. 자세한 경위는 docs/troubleshooting.md 참고.
 
 -- news_analysis: 뉴스 1건당 1행. AI가 만든 "공통 정보"(직무와 무관하게 누구에게나 보여줄
 -- 요약)를 담는다. "일반 모드"(직무를 아직 안 고른 사용자)에게는 이 테이블 내용만 보여준다.

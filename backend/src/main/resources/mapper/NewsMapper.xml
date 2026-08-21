@@ -19,7 +19,6 @@
         <id column="id" property="id"/>
         <result column="url" property="url"/>
         <result column="title" property="title"/>
-        <result column="description" property="description"/>
         <result column="source" property="source"/>
         <result column="published_at" property="publishedAt"/>
         <result column="collected_at" property="collectedAt"/>
@@ -43,15 +42,9 @@
         useGeneratedKeys="true" keyProperty="id" 는 "DB가 자동으로 만든 id 값을
         저장 후에 News 객체의 id 필드로 다시 채워달라"는 뜻입니다.
     -->
-    <!--
-        description은 크롤링에 성공하면 기사 본문 전체, 실패하면 null일 수 있습니다
-        (자세한 내용은 News.java의 description 필드 주석 참고). jdbcType=VARCHAR를 명시해서,
-        값이 null이어도 MyBatis가 어떤 SQL 타입으로 NULL을 넣을지 알 수 있게 했습니다
-        (jdbcType을 안 적으면 값이 null일 때 드라이버에 따라 오류가 날 수 있습니다).
-    -->
     <insert id="insert" parameterType="com.jobnews.news.News" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO news (url, title, description, source, published_at)
-        VALUES (#{url}, #{title}, #{description, jdbcType=VARCHAR}, #{source}, #{publishedAt, jdbcType=TIMESTAMP})
+        INSERT INTO news (url, title, source, published_at)
+        VALUES (#{url}, #{title}, #{source}, #{publishedAt, jdbcType=TIMESTAMP})
     </insert>
 
 </mapper>

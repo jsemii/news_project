@@ -25,14 +25,18 @@ public class NewsAnalysisSaver {
     }
 
     /**
-     * [무엇을 받아서] 분석 대상 뉴스의 id와, OpenAI가 만들어준 분석 결과를 받습니다.
+     * [무엇을 받아서] 분석 대상 뉴스의 id, 1단계 결과(GeneralAnalysisResult), 2단계 결과
+     *              (JobAnalysisResult 목록, 항상 3개)를 받습니다.
      * [무엇을 하고] 공통 요약 1행 + 산업 태그 N행 + 직무별 분석 3행, 총 최대 3번의 INSERT를
      *              실행합니다.
      * [무엇을 돌려주는지] 반환값 없음.
      * [왜 필요한지] 하나의 뉴스 분석 결과가 여러 테이블에 걸쳐 저장되는데, 만약 공통 요약은
      *              저장됐는데 직무별 분석 저장 중 오류가 나면 "반쪽짜리" 데이터가 남게 됩니다.
      *              이런 데이터는 이후 "이미 분석됨"으로 착각되어(existsByNewsId가 true를
-     *              반환) 다시는 재시도되지 않는 심각한 문제로 이어집니다.
+     *              반환) 다시는 재시도되지 않는 심각한 문제로 이어집니다. 1단계와 2단계
+     *              LLM 호출이 완전히 끝난 뒤(NewsStructuringService에서) 이 메서드를 한 번만
+     *              호출하는 것도 같은 이유입니다 — 2단계가 실패하면 1단계 결과도 아예
+     *              저장하지 않고 통째로 버립니다.
      */
     // @Transactional: 이 메서드 안의 모든 INSERT를 "전부 성공하거나 전부 취소되거나" 둘 중
     // 하나로 묶어주는 어노테이션입니다. 중간에 하나라도 실패하면 이미 실행된 INSERT까지
@@ -44,26 +48,26 @@ public class NewsAnalysisSaver {
     // 로직만 별도 빈으로 떼어내, NewsStructuringService가 "다른 빈을 호출"하는 형태로
     // 만들어서 이 문제를 피했습니다.
     @Transactional
-    public void save(Long newsId, AiAnalysisResult result) {
+    public void save(Long newsId, GeneralAnalysisResult general, List<JobAnalysisResult> jobs) {
         // importance_reason은 DB에 저장하지 않고(요구사항: importance_score 컬럼만 추가),
         // 점수를 왜 그렇게 매겼는지 나중에 사람이 확인할 수 있도록 로그로만 남깁니다.
         log.info("[newsId={}] importance_score={} reason={}",
-                newsId, result.getImportanceScore(), result.getImportanceReason());
+                newsId, general.getImportanceScore(), general.getImportanceReason());
 
         newsAnalysisMapper.insertAnalysis(
-                new NewsAnalysis(newsId, result.getSummary(), result.getImportanceScore()));
+                new NewsAnalysis(newsId, general.getSummary(), general.getImportanceScore()));
 
         // if: AI가 관련 산업을 하나도 못 찾았다면(빈 리스트) insertIndustries를 호출하지
         // 않습니다. 빈 리스트로 그 메서드를 부르면 "VALUES" 뒤에 아무것도 없는 잘못된
         // SQL이 만들어지기 때문입니다.
-        if (!result.getIndustries().isEmpty()) {
-            List<NewsIndustry> industries = result.getIndustries().stream()
+        if (!general.getIndustries().isEmpty()) {
+            List<NewsIndustry> industries = general.getIndustries().stream()
                     .map(industry -> new NewsIndustry(newsId, industry))
                     .toList();
             newsAnalysisMapper.insertIndustries(industries);
         }
 
-        List<NewsJobAnalysis> jobAnalyses = result.getJobs().stream()
+        List<NewsJobAnalysis> jobAnalyses = jobs.stream()
                 .map(job -> new NewsJobAnalysis(newsId, job.getJob(), job.getWhyItMatters(), job.getKeySkills()))
                 .toList();
         newsAnalysisMapper.insertJobAnalyses(jobAnalyses);

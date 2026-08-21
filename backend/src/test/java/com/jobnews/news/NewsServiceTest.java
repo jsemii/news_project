@@ -21,7 +21,6 @@ class NewsServiceTest {
         News news = new News(
                 "https://example.com/news/test-article",
                 "테스트 기사",
-                "설명",
                 "테스트소스",
                 LocalDateTime.now()
         );
