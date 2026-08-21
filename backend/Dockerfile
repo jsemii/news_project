@@ -9,6 +9,11 @@ WORKDIR /app
 # gradlew와 wrapper 설정만 먼저 복사해서 의존성 캐시 레이어를 만듭니다. build.gradle이
 # 안 바뀌었으면 이후 재빌드 때 이 레이어가 재사용되어 빌드가 빨라집니다.
 COPY gradlew ./
+# chmod +x: git이나 운영체제(특히 Windows에서 clone한 뒤 리눅스 서버로 옮기는 경우)에 따라
+# gradlew 파일의 실행 권한이 보존되지 않을 수 있습니다(EC2에서 실제로 "Permission denied"로
+# 겪은 문제 — docs/troubleshooting.md 참고). 로컬 파일시스템의 원본 권한 상태를 신뢰하지 않고,
+# 이미지 안에서 매번 확실하게 실행 권한을 부여합니다.
+RUN chmod +x ./gradlew
 COPY gradle ./gradle
 COPY build.gradle settings.gradle ./
 RUN ./gradlew --version

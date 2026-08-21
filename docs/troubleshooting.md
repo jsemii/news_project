@@ -230,3 +230,25 @@ AWS EC2 배포용 Docker 구성(백엔드 Dockerfile, Nginx, docker-compose 확�
 분기했다. 변경 후 로컬에서 `./gradlew bootRun`으로 정상 접속되는 것과, `docker compose
 up --build`로 db→backend→nginx가 헬스체크를 통과하며 순서대로 뜨고 `curl
 http://localhost/api/briefings`가 실제 데이터를 반환하는 것을 모두 직접 확인했다.
+
+## 11. EC2에서 backend Docker 이미지 빌드 시 gradlew Permission denied(exit 126)
+#### 현상
+로컬(Windows, Docker Desktop)에서는 `backend/Dockerfile` 빌드가 문제없이 됐는데,
+EC2(Ubuntu, 리눅스)에서 같은 이미지를 빌드하니 `RUN ./gradlew --version` 단계에서
+`Permission denied`와 함께 exit code 126으로 실패했다.
+
+#### 원인
+`gradlew`는 실행 권한(+x)이 있어야 `./gradlew`로 직접 실행할 수 있는 셸 스크립트다.
+이 실행 권한 비트가 리포지토리를 clone/이미지로 COPY하는 과정 어딘가에서 보존되지
+않아, EC2의 빌드 환경에서는 실행 권한이 없는 상태로 파일이 들어갔다(로컬 Windows
+Docker Desktop 환경에서는 우연히 문제가 드러나지 않았다 — 파일시스템/COPY 처리
+방식 차이로 추정). `COPY gradlew ./` 직후 바로 `RUN ./gradlew --version`을 실행해서
+문제가 즉시 드러났다.
+
+#### 해결
+`backend/Dockerfile`에서 `COPY gradlew ./` 바로 다음 줄에 `RUN chmod +x ./gradlew`를
+추가했다. 로컬 파일시스템에 있는 원본 `gradlew`의 실행 권한 상태가 어떻든(Windows에서
+clone했든, git이 권한을 어떻게 저장했든) 이미지 안에서 매번 명시적으로 실행 권한을
+부여하므로, 빌드 환경(OS)에 상관없이 항상 안전하게 빌드된다. 수정 후 로컬에서
+`docker build --no-cache`로 처음부터 다시 빌드해 `./gradlew --version`과
+`./gradlew bootJar -x test`가 모두 정상 실행되는 것을 확인했다.
