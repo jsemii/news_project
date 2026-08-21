@@ -83,17 +83,19 @@ public class RssFetcher {
     // [무엇을 받아서] Rome 라이브러리가 파싱한 기사 하나(SyndEntry)와, 이 기사가 어느
     //              소스에서 왔는지(sourceName)를 받습니다.
     // [무엇을 하고] Rome의 형식을 우리 프로젝트의 News 형식으로 옮겨 담습니다.
-    //              description은 RSS에 요약이 없을 수도 있어 null 체크를 하고,
-    //              publishedAt도 RSS에 발행일이 없을 수 있어 null 체크를 합니다.
-    //              날짜는 Rome이 주는 java.util.Date를 이 프로젝트가 쓰는
-    //              LocalDateTime(더 다루기 쉬운 최신 날짜 타입)으로 변환합니다.
+    //              RSS가 제공하는 요약(description)은 더 이상 쓰지 않습니다 — AI 구조화
+    //              단계에서 원문을 별도로 크롤링해 메모리에서만 쓰고 바로 버리는 방식으로
+    //              바뀌었기 때문에(저작권 리스크 완화), RSS 요약을 저장해둘 이유가
+    //              없어졌습니다(docs/troubleshooting.md 참고).
+    //              publishedAt은 RSS에 발행일이 없을 수 있어 null 체크를 합니다. 날짜는
+    //              Rome이 주는 java.util.Date를 이 프로젝트가 쓰는 LocalDateTime(더 다루기
+    //              쉬운 최신 날짜 타입)으로 변환합니다.
     // [무엇을 돌려주는지] 변환이 끝난 News 객체 하나를 돌려줍니다.
     private News toNews(SyndEntry entry, String sourceName) {
-        String description = entry.getDescription() != null ? entry.getDescription().getValue() : null;
         LocalDateTime publishedAt = entry.getPublishedDate() != null
                 ? entry.getPublishedDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
                 : null;
 
-        return new News(entry.getLink(), entry.getTitle(), description, sourceName, publishedAt);
+        return new News(entry.getLink(), entry.getTitle(), sourceName, publishedAt);
     }
 }

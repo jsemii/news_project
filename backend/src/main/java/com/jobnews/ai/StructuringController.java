@@ -1,5 +1,7 @@
 package com.jobnews.ai;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 // @RequestMapping("/api/structuring"): 이 컨트롤러의 모든 엔드포인트 앞에 공통으로
 // 붙는 URL 경로입니다. 아래 @PostMapping("/run")과 합쳐져 최종 경로는 "/api/structuring/run"이 됩니다.
 @RequestMapping("/api/structuring")
+// @Tag: Swagger UI에서 이 컨트롤러의 엔드포인트들을 묶어서 보여줄 그룹 이름/설명입니다.
+@Tag(name = "Structuring", description = "AI 뉴스 구조화를 수동으로 즉시 실행하는 API")
 public class StructuringController {
 
     private final NewsStructuringService newsStructuringService;
@@ -40,6 +44,11 @@ public class StructuringController {
     // 쓴 이유는, 이 호출이 DB에 실제로 데이터를 써서(분석 결과 저장) 서버 상태를 바꾸는
     // "행동"이기 때문입니다(REST 관례상 상태를 바꾸는 요청은 GET을 쓰지 않습니다).
     @PostMapping("/run")
+    @Operation(
+            summary = "AI 뉴스 구조화 즉시 실행",
+            description = "미분석 뉴스를 openai.batch-size만큼 조회해 크롤링→1단계 요약→2단계 직무별 재해석 순으로 처리합니다. "
+                    + "스케줄러(cron)가 자동으로 실행하는 것과 완전히 같은 로직입니다."
+    )
     public StructuringSummary run() {
         return newsStructuringService.structureAll();
     }

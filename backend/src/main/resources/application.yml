@@ -65,7 +65,7 @@ ai:
       - "[포토]"
       - "[화보]"
       - 로또
-    min-description-length: 200 # 본문이 이보다 짧으면 제외
+    min-content-length: 200 # 크롤링한 원문(메모리)이 이보다 짧으면 제외
 
 briefing:
   top-n: 10 # 조회 시 하루 상위 몇 건까지 보여줄지

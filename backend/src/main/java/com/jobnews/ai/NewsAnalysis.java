@@ -16,7 +16,7 @@ public class NewsAnalysis {
     // news_analysis 테이블에 news_id가 UNIQUE로 걸려 있어서, 같은 뉴스에 대한 공통
     // 분석은 항상 최대 1개만 존재할 수 있습니다(재분석을 막는 안전장치).
     private Long newsId;
-    // AI(OpenAI)가 뉴스 원문(news.description)을 읽고 만든 짧은 요약입니다.
+    // AI(OpenAI)가 크롤링한 원문(메모리 상의 값, DB에 저장되지 않음)을 읽고 만든 요약입니다.
     private String summary;
     // 이 뉴스가 IT전산/데이터분석/백엔드 취준생에게 얼마나 중요한지 AI가 매긴 1~10점입니다.
     // 브리핑 조회(briefing 패키지)에서 이 값을 기준으로 정렬해 상위 N건만 보여줍니다.

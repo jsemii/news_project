@@ -1,5 +1,7 @@
 package com.jobnews.briefing;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +17,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/briefings")
+@Tag(name = "Briefing", description = "중요도순 뉴스 브리핑 조회 API (최소 형태, 직무 필터는 핵심기능3에서 추가 예정)")
 public class BriefingController {
 
     private final BriefingMapper briefingMapper;
@@ -33,6 +36,10 @@ public class BriefingController {
     // @GetMapping: 데이터를 "조회"만 하고 서버 상태를 바꾸지 않는 요청이라 GET을 씁니다
     // (수동 트리거가 POST인 것과 대비됩니다).
     @GetMapping
+    @Operation(
+            summary = "오늘의 중요도순 브리핑 조회",
+            description = "오늘 분석된 뉴스 중 importance_score 내림차순으로 상위 N건(application.yml의 briefing.top-n, 기본 10건)을 반환합니다."
+    )
     public List<BriefingItem> list() {
         List<BriefingRow> rows = briefingMapper.selectTopBriefings(briefingProperties.getTopN());
         return rows.stream().map(this::toItem).toList();

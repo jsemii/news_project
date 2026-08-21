@@ -19,11 +19,13 @@ import java.util.List;
 @ConfigurationProperties(prefix = "ai.filter")
 public class NewsFilterProperties {
 
-    // 제목에 이 목록 중 하나라도 포함되면 제외합니다(예: "코스피", "[인사]").
+    // 제목에 이 목록 중 하나라도 포함되면 제외합니다(예: "코스피", "[인사]"). 크롤링 전에
+    // 먼저 확인하는 값이라, 걸리면 그 기사는 크롤링 요청조차 보내지 않습니다.
     private List<String> excludeTitleKeywords = new ArrayList<>();
-    // 본문(description) 길이가 이 값보다 짧으면 제외합니다. 내용이 거의 없는 기사는
-    // AI가 분석해도 근거가 부족한 결과만 나오기 때문입니다.
-    private int minDescriptionLength;
+    // 크롤링해서 얻은 원문(메모리 상의 텍스트) 길이가 이 값보다 짧으면 제외합니다. 내용이
+    // 거의 없는 기사는 AI가 분석해도 근거가 부족한 결과만 나오기 때문입니다. 크롤링을
+    // 해봐야 알 수 있는 값이라 title 키워드 체크와 달리 크롤링 이후에 확인합니다.
+    private int minContentLength;
 
     public List<String> getExcludeTitleKeywords() {
         return excludeTitleKeywords;
@@ -33,11 +35,11 @@ public class NewsFilterProperties {
         this.excludeTitleKeywords = excludeTitleKeywords;
     }
 
-    public int getMinDescriptionLength() {
-        return minDescriptionLength;
+    public int getMinContentLength() {
+        return minContentLength;
     }
 
-    public void setMinDescriptionLength(int minDescriptionLength) {
-        this.minDescriptionLength = minDescriptionLength;
+    public void setMinContentLength(int minContentLength) {
+        this.minContentLength = minContentLength;
     }
 }
