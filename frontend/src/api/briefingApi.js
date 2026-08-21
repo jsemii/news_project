@@ -3,16 +3,23 @@
 // 데이터를 받아온다"는 역할만 합니다(BriefingPage가 이 함수를 불러서 씁니다).
 
 // [무엇을 받아서] job(직무 이름 문자열, 예: "IT전산") 또는 null/undefined(직무를
-//              선택하지 않은 "일반 모드").
-// [무엇을 하고] job이 있으면 "/api/briefings?job=IT전산"처럼 쿼리 파라미터를 붙이고,
-//              없으면 파라미터 없이 "/api/briefings"만 호출합니다. 요청은 vite.config.js의
-//              프록시 설정을 통해 실제로는 http://localhost:8080으로 전달됩니다(CORS 회피).
-// [무엇을 돌려주는지] 성공하면 브리핑 목록(JSON 배열)을 그대로 돌려줍니다. 실패하면
-//              (예: 존재하지 않는 job 값이라 400이 온 경우) 에러를 던져서, 호출한 쪽
-//              (BriefingPage)이 catch해서 화면에 에러 메시지를 보여줄 수 있게 합니다.
-export async function fetchBriefings(job) {
-  const query = job ? `?job=${encodeURIComponent(job)}` : "";
-  const response = await fetch(`/api/briefings${query}`);
+//              선택하지 않은 "일반 모드"), date("yyyy-MM-dd" 날짜 문자열, 보통
+//              dateUtils.getTodayString()이나 그걸 이동시킨 값).
+// [무엇을 하고] job이 있으면 job도 쿼리에 붙이고, date는 항상 붙입니다(백엔드도 date가
+//              없으면 오늘로 처리하지만, 프론트는 selectedDate state를 항상 갖고 있으므로
+//              매번 명시적으로 보내는 편이 더 단순합니다). 예: "/api/briefings?job=IT전산&date=2026-08-15".
+//              요청은 vite.config.js의 프록시 설정을 통해 실제로는 http://localhost:8080으로
+//              전달됩니다(CORS 회피).
+// [무엇을 돌려주는지] 성공하면 브리핑 목록(JSON 배열, 그 날짜에 데이터가 없으면 빈 배열)을
+//              그대로 돌려줍니다. 실패하면(예: 존재하지 않는 job 값이거나 날짜 형식이 잘못돼서
+//              400이 온 경우) 에러를 던져서, 호출한 쪽(BriefingPage)이 catch해서 화면에
+//              에러 메시지를 보여줄 수 있게 합니다.
+export async function fetchBriefings(job, date) {
+  const params = new URLSearchParams();
+  if (job) params.set("job", job);
+  if (date) params.set("date", date);
+
+  const response = await fetch(`/api/briefings?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`브리핑을 불러오지 못했습니다. (status: ${response.status})`);

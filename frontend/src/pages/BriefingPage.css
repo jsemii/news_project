@@ -21,6 +21,14 @@
   margin: 0 0 18px;
 }
 
+.briefing-page__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .briefing-page__status {
   color: var(--text);
   padding: 24px 0;

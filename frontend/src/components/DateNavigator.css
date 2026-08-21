@@ -1,0 +1,77 @@
+/* DateNavigator: JobSelector와 같은 절제된 톤. 화살표/날짜/달력 아이콘을 한 줄에
+   가지런히 배치하고, 장식 없이 테두리와 hover 색상 변화만으로 상호작용을 표현합니다. */
+
+.date-navigator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.date-navigator__arrow {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+  cursor: pointer;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 13px;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.date-navigator__arrow:hover:not(:disabled) {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.date-navigator__arrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.date-navigator__label {
+  min-width: 64px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.date-navigator__calendar-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.date-navigator__calendar-button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.date-navigator__calendar-button:hover {
+  background: var(--accent-bg);
+}
+
+/* 실제 눈에 보이는 건 위 버튼(달력 이모지)뿐이고, 네이티브 <input type="date">는
+   같은 자리에 완전히 투명하게 겹쳐서 크기만 차지합니다 — 클릭은 버튼이 처리하고
+   (openCalendar()가 showPicker() 호출), 이 input은 브라우저 네이티브 달력 UI와
+   선택된 값 상태만 담당합니다. */
+.date-navigator__calendar-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+}
