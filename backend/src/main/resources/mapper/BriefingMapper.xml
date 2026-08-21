@@ -40,4 +40,51 @@
         LIMIT #{limit}
     </select>
 
+    <resultMap id="jobBriefingRowMap" type="com.jobnews.briefing.BriefingRow">
+        <result column="news_id" property="newsId"/>
+        <result column="title" property="title"/>
+        <result column="url" property="url"/>
+        <result column="published_at" property="publishedAt"/>
+        <result column="summary" property="summary"/>
+        <result column="importance_score" property="importanceScore"/>
+        <result column="industries_csv" property="industriesCsv"/>
+        <result column="job" property="job"/>
+        <result column="why_it_matters" property="whyItMatters"/>
+        <result column="key_skills" property="keySkills"/>
+    </resultMap>
+
+    <!--
+        selectTopBriefings와 거의 같지만, news_job_analysis를 news_id + job(파라미터)
+        조건으로 INNER JOIN해서 그 직무 관점의 재해석(why_it_matters, key_skills)도
+        함께 가져옵니다. INNER JOIN을 쓰는 이유: NewsAnalysisSaver.save()가
+        news_analysis와 3개 직무 행을 항상 같은 트랜잭션에서 함께 저장하므로,
+        news_analysis가 있는 뉴스는 반드시 이 조인 조건에 맞는 직무 행도 존재합니다 —
+        그래서 이 쿼리로도 selectTopBriefings와 같은 뉴스 건수가 나옵니다(내용만 다름).
+        job/why_it_matters/key_skills도 GROUP BY에 넣는 이유는 이 값들이 string_agg처럼
+        집계되는 컬럼이 아니라서(뉴스+직무 조합마다 값이 하나뿐이긴 하지만) PostgreSQL이
+        SELECT에 있는 비집계 컬럼은 GROUP BY에도 명시하도록 요구하기 때문입니다.
+    -->
+    <select id="selectTopBriefingsByJob" resultMap="jobBriefingRowMap">
+        SELECT
+            n.id AS news_id,
+            n.title AS title,
+            n.url AS url,
+            n.published_at AS published_at,
+            na.summary AS summary,
+            na.importance_score AS importance_score,
+            string_agg(DISTINCT ni.industry, ',') AS industries_csv,
+            ja.job AS job,
+            ja.why_it_matters AS why_it_matters,
+            ja.key_skills AS key_skills
+        FROM news n
+        JOIN news_analysis na ON na.news_id = n.id
+        JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
+        LEFT JOIN news_industry ni ON ni.news_id = n.id
+        WHERE na.analyzed_at::date = CURRENT_DATE
+        GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
+                 ja.job, ja.why_it_matters, ja.key_skills
+        ORDER BY na.importance_score DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

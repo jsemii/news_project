@@ -20,6 +20,35 @@ public class BriefingRow {
     private int importanceScore;
     // 산업 태그들을 "금융,제조"처럼 콤마로 이어붙인 문자열. 태그가 하나도 없으면 null입니다.
     private String industriesCsv;
+    // 아래 3개는 selectTopBriefingsByJob(직무별 조회)에서만 채워집니다. 일반 모드
+    // 조회(selectTopBriefings)는 이 컬럼들을 아예 select하지 않으므로 항상 null입니다.
+    private String job;
+    private String whyItMatters;
+    private String keySkills;
+
+    public String getJob() {
+        return job;
+    }
+
+    public void setJob(String job) {
+        this.job = job;
+    }
+
+    public String getWhyItMatters() {
+        return whyItMatters;
+    }
+
+    public void setWhyItMatters(String whyItMatters) {
+        this.whyItMatters = whyItMatters;
+    }
+
+    public String getKeySkills() {
+        return keySkills;
+    }
+
+    public void setKeySkills(String keySkills) {
+        this.keySkills = keySkills;
+    }
 
     public Long getNewsId() {
         return newsId;

@@ -1,5 +1,7 @@
 package com.jobnews.briefing;
 
+import com.jobnews.ai.JobAnalysisResult;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,6 +10,10 @@ import java.util.List;
  * 클라이언트(프론트엔드)에게 JSON으로 돌려주는 응답 항목입니다. 기사 원문은 애초에
  * 어떤 테이블에도 저장되지 않으므로 여기 포함될 수도 없고, AI가 사실관계를 재구성해
  * 만든 summary(짧은 재요약)만 내보냅니다(저작권 리스크 완화).
+ * jobInsight는 사용자가 특정 직무(IT전산/데이터분석/백엔드)를 선택했을 때만 채워지는
+ * "그 직무 관점의 재해석"입니다(핵심기능3). 직무를 선택하지 않은 일반 모드에서는
+ * null입니다. ai 패키지의 JobAnalysisResult를 그대로 재사용합니다 — job/whyItMatters/
+ * keySkills 모양이 정확히 같고, SummaryReviewItem에서도 같은 재사용 방식을 씁니다.
  */
 public class BriefingItem {
 
@@ -18,9 +24,11 @@ public class BriefingItem {
     private final String summary;
     private final int importanceScore;
     private final List<String> industries;
+    private final JobAnalysisResult jobInsight;
 
     public BriefingItem(Long newsId, String title, String url, LocalDateTime publishedAt,
-                         String summary, int importanceScore, List<String> industries) {
+                         String summary, int importanceScore, List<String> industries,
+                         JobAnalysisResult jobInsight) {
         this.newsId = newsId;
         this.title = title;
         this.url = url;
@@ -28,6 +36,7 @@ public class BriefingItem {
         this.summary = summary;
         this.importanceScore = importanceScore;
         this.industries = industries;
+        this.jobInsight = jobInsight;
     }
 
     public Long getNewsId() {
@@ -56,5 +65,9 @@ public class BriefingItem {
 
     public List<String> getIndustries() {
         return industries;
+    }
+
+    public JobAnalysisResult getJobInsight() {
+        return jobInsight;
     }
 }
