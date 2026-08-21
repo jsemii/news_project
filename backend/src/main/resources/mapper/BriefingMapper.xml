@@ -19,8 +19,9 @@
         news_analysis와 news를 조인해서 요약/중요도 점수를 가져오고, news_industry는
         LEFT JOIN + string_agg(콤마로 이어붙이는 PostgreSQL 집계 함수)로 한 줄짜리
         문자열로 합칩니다 — 뉴스 1건에 산업이 여러 개 붙어도 결과 행이 뉴스 1건당
-        1행으로 유지되게 하기 위함입니다(GROUP BY 필요). analyzed_at::date = CURRENT_DATE로
-        "오늘 분석된 것"만 걸러내고, importance_score 내림차순으로 정렬해 상위 N건만 가져옵니다.
+        1행으로 유지되게 하기 위함입니다(GROUP BY 필요). analyzed_at::date = #{date}로
+        "그 날짜에 분석된 것"만 걸러내고(date는 BriefingController가 파라미터 없으면
+        오늘 날짜로 채워서 넘겨줍니다), importance_score 내림차순으로 정렬해 상위 N건만 가져옵니다.
     -->
     <select id="selectTopBriefings" resultMap="briefingRowMap">
         SELECT
@@ -34,7 +35,7 @@
         FROM news n
         JOIN news_analysis na ON na.news_id = n.id
         LEFT JOIN news_industry ni ON ni.news_id = n.id
-        WHERE na.analyzed_at::date = CURRENT_DATE
+        WHERE na.analyzed_at::date = #{date}
         GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score
         ORDER BY na.importance_score DESC
         LIMIT #{limit}
@@ -80,7 +81,7 @@
         JOIN news_analysis na ON na.news_id = n.id
         JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
         LEFT JOIN news_industry ni ON ni.news_id = n.id
-        WHERE na.analyzed_at::date = CURRENT_DATE
+        WHERE na.analyzed_at::date = #{date}
         GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
                  ja.job, ja.why_it_matters, ja.key_skills
         ORDER BY na.importance_score DESC
