@@ -2,7 +2,13 @@ spring:
   application:
     name: backend
   datasource:
-    url: jdbc:postgresql://localhost:5432/news_briefing
+    # ${DB_HOST:localhost}: DB_HOST 환경변수가 있으면 그 값을, 없으면 localhost를 씁니다.
+    # 로컬에서 ./gradlew bootRun으로 직접 실행할 때는 DB_HOST를 안 넘기므로 지금까지처럼
+    # localhost(호스트에 노출된 5432 포트)로 접속합니다. Docker Compose로 배포할 때는
+    # backend 컨테이너의 environment에 DB_HOST=db를 넣어서, 같은 Docker 네트워크 안의
+    # db 서비스 이름으로 접속하도록 바꿉니다(컨테이너 안에서 localhost는 배포 시 반드시
+    # 고쳐야 하는 부분이었습니다 — infra/README.md, docs/troubleshooting.md 참고).
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/news_briefing
     username: appuser
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
