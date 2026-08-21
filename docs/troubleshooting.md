@@ -206,3 +206,27 @@ constraint "news_analysis_news_id_key" Detail: Key (news_id)=(176) already exist
 단 한 번의 오류 없이 `remainingBacklog: 0`까지 도달하는 것을 확인했고, 처음 문제가
 발견됐던 3건(news_id 343, 360, 361)의 DB 저장 요약을 직접 조회해서 주체 바꿔치기나
 할루시네이션 없이 정확하게 재처리된 것도 함께 확인했다.
+
+## 10. DB 접속 주소에 localhost가 하드코딩돼 있어 Docker 배포 시 접속 실패할 뻔함
+#### 현상
+AWS EC2 배포용 Docker 구성(백엔드 Dockerfile, Nginx, docker-compose 확장)을 설계하면서
+`backend/src/main/resources/application.yml`을 확인한 결과, DB 접속 URL이
+`jdbc:postgresql://localhost:5432/news_briefing`로 호스트가 고정돼 있었다. 지금까지는
+문제가 드러나지 않았는데, 로컬 개발에서는 Postgres 컨테이너가 호스트 포트 5432로
+노출돼 있어 `localhost`로도 접속이 됐기 때문이다.
+
+#### 원인
+설계 시점에 "백엔드도 컨테이너로 띄운다"는 시나리오를 고려하지 않고 로컬 개발 환경
+기준으로만 접속 주소를 정했다. Docker Compose로 배포하면 backend 컨테이너 안에서
+`localhost`는 backend 컨테이너 자기 자신을 가리키므로(Postgres가 아님), 이 상태로
+배포했다면 backend가 기동 시점에 자기 자신의 5432 포트로 접속을 시도하다가 무조건
+실패했을 것이다 — 실제로 배포해보기 전에 설계 단계에서 발견해 미리 고쳤다.
+
+#### 해결
+`application.yml`의 접속 URL을 `jdbc:postgresql://${DB_HOST:localhost}:5432/news_briefing`로
+바꿨다. `DB_HOST` 환경변수가 없으면 지금까지처럼 `localhost`를 기본값으로 쓰고(로컬
+`./gradlew bootRun` 흐름은 전혀 안 바뀜), `infra/docker/docker-compose.yml`의 backend
+서비스에만 `DB_HOST=db`를 넣어서 Docker 내부 네트워크의 `db` 서비스 이름으로 접속하도록
+분기했다. 변경 후 로컬에서 `./gradlew bootRun`으로 정상 접속되는 것과, `docker compose
+up --build`로 db→backend→nginx가 헬스체크를 통과하며 순서대로 뜨고 `curl
+http://localhost/api/briefings`가 실제 데이터를 반환하는 것을 모두 직접 확인했다.
