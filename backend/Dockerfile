@@ -49,6 +49,14 @@ COPY --from=build /app/build/libs/*.jar app.jar
 
 EXPOSE 8080
 
+# -Xmx384m: JVM이 쓸 수 있는 힙(객체를 저장하는 메모리 영역) 최대치를 명시적으로
+# 제한합니다. 이 옵션이 없으면 JVM은 기본적으로 "보이는 메모리의 25%"까지 힙을 쓰려고
+# 하는데, EC2 프리티어급 인스턴스(RAM 1GB 안팎)에서는 Postgres/nginx와 메모리를 나눠
+# 쓰다가 여유분이 부족해져서 OOM(메모리 부족)으로 강제 종료(SIGKILL, exit 137)되는
+# 문제를 실제로 겪었다(docs/troubleshooting.md 참고). 힙을 명시적으로 제한해서 백엔드가
+# 필요 이상으로 메모리를 잡지 않도록 방지한다. 값은 인스턴스 메모리 여유를 보고 조정
+# 가능(늘리려면 EC2 인스턴스 자체를 더 큰 메모리로 바꾸거나 이 값을 조정).
+#
 # 실제 애플리케이션 구동 명령. DB_HOST/DB_PASSWORD/OPENAI_API_KEY는 이미지 안에 넣지 않고
 # docker-compose.yml의 environment로 실행 시점에 주입합니다(비밀값을 이미지에 굽지 않기 위함).
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Xmx384m", "-jar", "app.jar"]
