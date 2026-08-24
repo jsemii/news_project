@@ -22,6 +22,12 @@
         1행으로 유지되게 하기 위함입니다(GROUP BY 필요). analyzed_at::date = #{date}로
         "그 날짜에 분석된 것"만 걸러내고(date는 BriefingController가 파라미터 없으면
         오늘 날짜로 채워서 넘겨줍니다), importance_score 내림차순으로 정렬해 상위 N건만 가져옵니다.
+        published_at::date >= #{date} - 1 조건은 "기사가 실제로 언제 쓰였는지"를 분석
+        날짜와 너무 동떨어지지 않게 제한합니다 — 과거 백로그를 한꺼번에 재처리했던
+        이력 때문에, 이 조건이 없으면 예를 들어 8/21 탭에 8/18~8/20에 쓰인 오래된
+        기사까지 섞여서 나올 수 있습니다(실제로 겪은 문제). 분석일 당일 또는 바로
+        전날 발행된 기사만 그 날짜의 브리핑으로 보여주는 게 "오늘/그날의 브리핑"이라는
+        의미에 맞습니다.
     -->
     <select id="selectTopBriefings" resultMap="briefingRowMap">
         SELECT
@@ -36,6 +42,7 @@
         JOIN news_analysis na ON na.news_id = n.id
         LEFT JOIN news_industry ni ON ni.news_id = n.id
         WHERE na.analyzed_at::date = #{date}
+          AND n.published_at::date >= #{date} - 1
         GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score
         ORDER BY na.importance_score DESC
         LIMIT #{limit}
@@ -82,6 +89,7 @@
         JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
         LEFT JOIN news_industry ni ON ni.news_id = n.id
         WHERE na.analyzed_at::date = #{date}
+          AND n.published_at::date >= #{date} - 1
         GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
                  ja.job, ja.why_it_matters, ja.key_skills
         ORDER BY na.importance_score DESC
