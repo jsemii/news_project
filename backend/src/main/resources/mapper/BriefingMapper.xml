@@ -19,15 +19,17 @@
         news_analysis와 news를 조인해서 요약/중요도 점수를 가져오고, news_industry는
         LEFT JOIN + string_agg(콤마로 이어붙이는 PostgreSQL 집계 함수)로 한 줄짜리
         문자열로 합칩니다 — 뉴스 1건에 산업이 여러 개 붙어도 결과 행이 뉴스 1건당
-        1행으로 유지되게 하기 위함입니다(GROUP BY 필요). analyzed_at::date = #{date}로
-        "그 날짜에 분석된 것"만 걸러내고(date는 BriefingController가 파라미터 없으면
-        오늘 날짜로 채워서 넘겨줍니다), importance_score 내림차순으로 정렬해 상위 N건만 가져옵니다.
-        published_at::date >= #{date} - 1 조건은 "기사가 실제로 언제 쓰였는지"를 분석
-        날짜와 너무 동떨어지지 않게 제한합니다 — 과거 백로그를 한꺼번에 재처리했던
-        이력 때문에, 이 조건이 없으면 예를 들어 8/21 탭에 8/18~8/20에 쓰인 오래된
-        기사까지 섞여서 나올 수 있습니다(실제로 겪은 문제). 분석일 당일 또는 바로
-        전날 발행된 기사만 그 날짜의 브리핑으로 보여주는 게 "오늘/그날의 브리핑"이라는
-        의미에 맞습니다.
+        1행으로 유지되게 하기 위함입니다(GROUP BY 필요). JOIN news_analysis는 "분석까지
+        끝난 뉴스만" 대상으로 하기 위한 구조적 조건이고, "어느 날짜의 브리핑인지"는
+        COALESCE(n.published_at, n.collected_at)::date = #{date}로 판단합니다 — 기사가
+        실제로 언제 쓰였는지(published_at, RSS에 발행일이 없으면 collected_at으로 대체)를
+        기준으로 삼는다는 뜻입니다. 예전에는 na.analyzed_at::date(AI가 언제 "처리"했는지)로
+        판단했는데, 이러면 백로그로 밀렸던 며칠 전 기사가 오늘 뒤늦게 분석될 때 오늘
+        브리핑에 섞여 보이는 문제가 있었습니다(실제로 겪은 문제 — docs/troubleshooting.md
+        참고). "오늘의 브리핑"은 "오늘 일어난 일"을 보여줘야 하므로 처리 시점이 아니라
+        발행/수집 시점으로 기준을 바꿨습니다. 이전에 있던 별도 보정 조건
+        (published_at::date >= date - 1)은 이 기준 자체가 정확해지면서 더 이상 필요 없어져
+        제거했습니다. importance_score 내림차순으로 정렬해 상위 N건만 가져옵니다.
     -->
     <select id="selectTopBriefings" resultMap="briefingRowMap">
         SELECT
@@ -41,8 +43,7 @@
         FROM news n
         JOIN news_analysis na ON na.news_id = n.id
         LEFT JOIN news_industry ni ON ni.news_id = n.id
-        WHERE na.analyzed_at::date = #{date}
-          AND n.published_at::date >= #{date} - 1
+        WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
         GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score
         ORDER BY na.importance_score DESC
         LIMIT #{limit}
@@ -88,8 +89,7 @@
         JOIN news_analysis na ON na.news_id = n.id
         JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
         LEFT JOIN news_industry ni ON ni.news_id = n.id
-        WHERE na.analyzed_at::date = #{date}
-          AND n.published_at::date >= #{date} - 1
+        WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
         GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
                  ja.job, ja.why_it_matters, ja.key_skills
         ORDER BY na.importance_score DESC
