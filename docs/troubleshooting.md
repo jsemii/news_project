@@ -500,3 +500,31 @@ AI 요약 대상 뉴스를 고르는 쿼리(`NewsAnalysisMapper.xml`의 `selectU
 제목 필터에 걸린 뉴스는 `TITLE_EXCLUDED`로, 컬럼 추가 이전부터 있던 기존 필터링
 기록들은 전부 `UNKNOWN`으로 정상적으로 구분되는 것도 함께 확인했다. 테스트가 끝난
 뒤 임시로 넣었던 테스트용 뉴스는 삭제해서 원래 상태로 되돌렸다.
+
+## 20. (14번 항목 재검토) 브리핑 날짜 판단 기준을 "분석일"에서 "발행/수집일"로 변경
+#### 현상
+19번 항목으로 오래된 뉴스 자동 제외를 추가한 뒤에도, 백로그로 밀렸던 뉴스가 뒤늦게
+분석되면 그날의 브리핑에 섞여 보이는 문제가 여전히 있었다. `GET /api/briefings`가
+"오늘"을 `news_analysis.analyzed_at::date`(AI가 언제 "처리"했는지)로 판단하고
+있었기 때문이다 — 14번 항목에서 넣은 `published_at::date >= date - 1` 보정 조건은
+증상을 완화했을 뿐, "처리 시점"을 기준으로 삼는다는 근본 원인은 그대로였다.
+
+#### 원인
+"오늘의 브리핑"은 "오늘 일어난 일(기사가 실제로 언제 쓰였는지)"을 보여줘야 하는데,
+구현은 "AI가 오늘 처리했는지"로 판단하고 있었다 — 개념 자체가 어긋나 있었다.
+
+#### 해결
+`BriefingMapper.xml`의 `selectTopBriefings`/`selectTopBriefingsByJob` 두 쿼리의
+날짜 조건을 `na.analyzed_at::date = #{date}`에서
+`COALESCE(n.published_at, n.collected_at)::date = #{date}`로 바꿨다. RSS에
+발행일이 안 오는 경우(`news.published_at`이 nullable)엔 수집 시각(`collected_at`,
+NOT NULL)으로 대체한다. `news_analysis`와의 JOIN 자체(분석 완료된 것만 대상으로
+함)는 그대로 유지했다 — 날짜 판단에 `analyzed_at` 값을 안 쓸 뿐이다. 이 기준이
+정확해지면서 14번 항목에서 넣었던 보정 조건(`published_at::date >= date - 1`)은
+더 이상 필요 없어져 제거했다.
+
+실제 서버로 확인: 오늘(8/24) 분석됐지만 8/22에 발행된 뉴스(news_id 558)가 이제
+8/24가 아니라 8/22 조건에 정확히 매치되는 것을 SQL로 직접 확인했다(그날 상위 10건
+안에는 안 들어서 화면엔 안 보이지만, 조건 자체는 정확함). 날짜별/직무별 조회, 데이터
+없는 날짜(빈 배열) 모두 회귀 없이 정상 동작하는 것도 확인했다. `./gradlew build`
+전체 테스트 통과.
