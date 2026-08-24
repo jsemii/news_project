@@ -40,6 +40,12 @@ export default function BriefingPage() {
 
     setLoading(true);
     setError(null);
+    // 날짜/직무를 바꾸는 순간 이전 선택의 카드 목록을 바로 비웁니다. 이게 없으면, 예를
+    // 들어 데이터가 없는 날짜로 이동했을 때 요청이 실패하거나 늦게 응답하는 경우
+    // 직전 날짜의 카드가 화면에 그대로 남아있는 것처럼 보일 수 있습니다(실제로 겪은
+    // 문제 — docs/troubleshooting.md 참고). 새 응답이 오기 전까지는 "불러오는 중"
+    // 상태만 보이는 게 맞습니다.
+    setBriefings([]);
 
     fetchBriefings(selectedJob, selectedDate)
       .then((data) => {
