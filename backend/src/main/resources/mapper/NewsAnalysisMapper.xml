@@ -39,8 +39,8 @@
         WHERE a.news_id IS NULL AND f.news_id IS NULL
     </select>
 
-    <insert id="insertFilteredOut" parameterType="long">
-        INSERT INTO news_filtered_out (news_id) VALUES (#{newsId})
+    <insert id="insertFilteredOut">
+        INSERT INTO news_filtered_out (news_id, reason) VALUES (#{newsId}, #{reason})
         ON CONFLICT (news_id) DO NOTHING
     </insert>
 

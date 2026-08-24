@@ -5,6 +5,7 @@ import com.jobnews.collector.ArticleFetchException;
 import com.jobnews.news.News;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -24,13 +25,19 @@ class NewsStructuringServiceTest {
         return props;
     }
 
+    private AiStructuringProperties structuringPropertiesWith(int maxAgeDays) {
+        AiStructuringProperties props = new AiStructuringProperties();
+        props.setMaxAgeDays(maxAgeDays);
+        return props;
+    }
+
     // 아무것도 걸러내지 않는 "통과 전용" 필터입니다. 필터 자체의 동작은
     // NewsRelevanceFilterTest에서 검증하므로, 여기서는 재시도/저장 흐름에만 집중합니다.
     private NewsRelevanceFilter permissiveFilter() {
         NewsFilterProperties props = new NewsFilterProperties();
         props.setExcludeTitleKeywords(List.of());
         props.setMinContentLength(0);
-        return new NewsRelevanceFilter(props);
+        return new NewsRelevanceFilter(props, structuringPropertiesWith(2));
     }
 
     private News newsWithId(long id) {
@@ -39,6 +46,11 @@ class NewsStructuringServiceTest {
         news.setTitle("테스트 뉴스");
         news.setUrl("https://example.com/news/" + id);
         news.setSource("테스트소스");
+        // collectedAt을 안 정해두면(null) NewsRelevanceFilter.isTooOld()가 안전하게
+        // "오래되지 않음"으로 취급하므로, 이 헬퍼로 만든 뉴스는 기본적으로 TOO_OLD 필터에
+        // 걸리지 않습니다. "너무 오래된 뉴스" 시나리오는 collectedAt을 직접 과거로 설정한
+        // 뉴스로 별도 테스트합니다(marksTooOldNewsAsFilteredOutWithoutCrawlingOrCallingAi).
+        news.setCollectedAt(LocalDateTime.now());
         return news;
     }
 
@@ -97,13 +109,38 @@ class NewsStructuringServiceTest {
 
         NewsStructuringService service = new NewsStructuringService(
                 articleContentFetcher, openAiClient, saver, mapper, propertiesWith(10),
-                new NewsRelevanceFilter(filterProps));
+                new NewsRelevanceFilter(filterProps, structuringPropertiesWith(2)));
 
         service.structureAll();
 
         verifyNoInteractions(articleContentFetcher);
         verifyNoInteractions(openAiClient);
-        verify(mapper, times(1)).insertFilteredOut(2L);
+        verify(mapper, times(1)).insertFilteredOut(2L, "TITLE_EXCLUDED");
+        verifyNoInteractions(saver);
+    }
+
+    @Test
+    void marksTooOldNewsAsFilteredOutWithoutCrawlingOrCallingAi() {
+        ArticleContentFetcher articleContentFetcher = mock(ArticleContentFetcher.class);
+        OpenAiClient openAiClient = mock(OpenAiClient.class);
+        NewsAnalysisSaver saver = mock(NewsAnalysisSaver.class);
+        NewsAnalysisMapper mapper = mock(NewsAnalysisMapper.class);
+        News news = newsWithId(5L);
+        // max-age-days(2일)보다 훨씬 이전에 수집된 것으로 만들어서 TOO_OLD 필터에 걸리게 한다.
+        news.setCollectedAt(LocalDateTime.now().minusDays(10));
+
+        when(mapper.selectUnanalyzedNews(anyInt())).thenReturn(List.of(news));
+
+        NewsStructuringService service = new NewsStructuringService(
+                articleContentFetcher, openAiClient, saver, mapper, propertiesWith(10), permissiveFilter());
+
+        service.structureAll();
+
+        // 크롤링/AI 호출은 비용이 드는 작업이라, 오래된 뉴스는 이 단계까지 가지 않고
+        // 제목 체크보다도 먼저 걸러져야 한다.
+        verifyNoInteractions(articleContentFetcher);
+        verifyNoInteractions(openAiClient);
+        verify(mapper, times(1)).insertFilteredOut(5L, "TOO_OLD");
         verifyNoInteractions(saver);
     }
 
@@ -125,7 +162,7 @@ class NewsStructuringServiceTest {
         service.structureAll();
 
         verifyNoInteractions(openAiClient);
-        verify(mapper, times(1)).insertFilteredOut(3L);
+        verify(mapper, times(1)).insertFilteredOut(3L, "CONTENT_TOO_SHORT");
         verifyNoInteractions(saver);
     }
 
