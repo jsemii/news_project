@@ -6,8 +6,10 @@ services:
       POSTGRES_DB: news_briefing
       POSTGRES_USER: appuser
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
+    # 호스트에 포트를 노출하지 않습니다 — backend가 같은 Docker 네트워크 안에서 "db"라는
+    # 서비스 이름으로 5432에 접속하는 데는 ports 매핑이 필요 없습니다(컨테이너 간 통신은
+    # 컴포즈가 만든 내부 네트워크로 항상 가능). 외부에서 DB에 직접 접속할 이유가 없으므로,
+    # backend/db는 nginx를 통해서만 외부에 노출한다는 배포 원칙에 맞춰 막아둡니다.
     volumes:
       - news-briefing-db-data:/var/lib/postgresql/data
     # healthcheck: "컨테이너 프로세스가 시작됐다"와 "Postgres가 접속을 받을 준비가 됐다"는

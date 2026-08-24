@@ -14,6 +14,10 @@ frontend/build/
 .env
 *.local
 
+# 로컬 개발 전용 Docker Compose 오버라이드(배포 서버에는 절대 올라가면 안 됨 — 이유는
+# infra/docker/docker-compose.override.yml 자체의 주석 참고)
+infra/docker/docker-compose.override.yml
+
 # IDE / OS
 .idea/
 .vscode/

@@ -252,3 +252,33 @@ clone했든, git이 권한을 어떻게 저장했든) 이미지 안에서 매번
 부여하므로, 빌드 환경(OS)에 상관없이 항상 안전하게 빌드된다. 수정 후 로컬에서
 `docker build --no-cache`로 처음부터 다시 빌드해 `./gradlew --version`과
 `./gradlew bootJar -x test`가 모두 정상 실행되는 것을 확인했다.
+
+## 12. db 서비스의 5432 포트를 막으면 로컬 ./gradlew bootRun 개발 방식이 깨짐
+#### 현상
+"backend/db는 nginx를 통해서만 외부에 노출한다"는 배포 원칙에 맞춰
+`infra/docker/docker-compose.yml`의 `db` 서비스에서 `ports: ["5432:5432"]`를
+제거했다. 이 상태로는 컨테이너로 띄운 `backend` 서비스는 Docker 내부 네트워크로
+`db`에 정상 접속되지만, `./gradlew bootRun`으로 호스트에서 직접 실행하는 지금까지의
+로컬 개발 방식은 `localhost:5432`로 접속을 시도하다가 실패하게 된다 — 컨테이너 밖
+프로세스는 호스트에 열린 포트가 없으면 컨테이너 안의 Postgres에 닿을 방법이 없기
+때문이다.
+
+#### 원인
+배포 서버(EC2) 기준으로는 5432를 외부에 열 이유가 전혀 없어서 뺀 게 맞지만, 지금까지
+이 프로젝트의 로컬 개발은 "Postgres만 컨테이너, 백엔드/프론트는 호스트에서 직접 실행"
+방식이었다는 점을 그 자리에서 함께 고려하지 못했다. 배포 설정과 로컬 개발 설정이
+같은 `docker-compose.yml` 파일 하나에 섞여 있어서 생긴 문제다.
+
+#### 해결
+Docker Compose의 표준 기능인 `docker-compose.override.yml`을 활용했다. 같은 폴더에
+이 파일이 있으면 `docker compose up`을 옵션 없이 실행해도 자동으로 원본
+`docker-compose.yml`에 덧붙여 적용된다. `infra/docker/docker-compose.override.yml`
+(db 서비스에 5432 포트만 다시 열어주는 내용)을 만들고, `.gitignore`에 등록해서 git에는
+절대 올라가지 않게 했다 — 배포 서버는 git pull로 `docker-compose.yml`만 받으므로
+이 오버라이드가 적용될 일이 없어 포트가 항상 닫힌 채로 유지되고, 로컬 개발 환경에서만
+이 파일을 직접 만들어서 포트를 되살릴 수 있다(`infra/README.md`에 안내함). `docker
+compose config`로 로컬(오버라이드 있음)은 5432가 노출되고, `docker compose -f
+docker-compose.yml config`(오버라이드 없이, 배포 서버 상황 재현)는 5432가 없는 것을
+직접 확인했다. 이후 전체 스택(`docker compose up -d`)을 다시 띄워서 nginx→backend→db
+전체 흐름이 여전히 정상 동작하는 것과, 호스트의 `./gradlew bootRun` 백엔드도 끊김 없이
+계속 DB에 접속되는 것을 함께 확인했다.
