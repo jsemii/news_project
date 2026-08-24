@@ -34,7 +34,19 @@ FROM eclipse-temurin:21-jre-alpine
 
 # curl: docker-compose.yml의 healthcheck가 "GET /api/briefings가 200을 주는지"로 이 컨테이너가
 # 정상인지 확인하는데, 그 확인 명령이 curl을 씁니다. alpine 기반 이미지엔 기본으로 없어서 설치합니다.
-RUN apk add --no-cache curl
+# tzdata: 시간대(타임존) 이름(Asia/Seoul 같은)을 실제 UTC 오프셋으로 바꿔주는 데이터입니다.
+# alpine 기반 이미지엔 기본으로 안 들어있어서, 이게 없으면 "Asia/Seoul"이라는 이름 자체를
+# JVM이 인식하지 못해 에러가 납니다.
+RUN apk add --no-cache curl tzdata
+
+# TZ=Asia/Seoul: 이 컨테이너 전체(그리고 그 안에서 도는 JVM)의 기본 시간대를 한국 시간으로
+# 고정합니다. Docker 컨테이너는 특별히 지정하지 않으면 기본적으로 UTC를 쓰는데, 이 상태로
+# 배포하면 두 가지가 어긋납니다: (1) LocalDate.now()로 판단하는 "오늘"이 자정~오전 9시
+# 사이엔 실제 한국 날짜보다 하루 이르게 나오고, (2) @Scheduled(cron="0 0 8,13,18 * * *")가
+# UTC 기준 08/13/18시(=한국시간 17/22/03시)에 돌아버립니다. 실제로 EC2 배포 후 겪은
+# 문제입니다(docs/troubleshooting.md 참고). 로컬 Windows에서는 시스템 시간대가 이미
+# 한국이라 우연히 문제가 안 드러났었습니다.
+ENV TZ=Asia/Seoul
 
 # 컨테이너를 root 권한으로 실행하지 않기 위해 별도 사용자를 만듭니다 — 만약 애플리케이션에
 # 취약점이 있어 공격당하더라도, root가 아니면 컨테이너 안에서 할 수 있는 일이 제한됩니다.

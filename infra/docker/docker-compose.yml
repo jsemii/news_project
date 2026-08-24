@@ -6,6 +6,16 @@ services:
       POSTGRES_DB: news_briefing
       POSTGRES_USER: appuser
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    # command: postgres 공식 이미지는 TZ 환경변수를 자동으로 읽어서 시간대를 바꿔주지
+    # 않습니다(직접 확인함 — TZ만 넣었더니 SHOW timezone이 여전히 UTC였음). "-c
+    # timezone=Asia/Seoul"로 Postgres 실행 옵션 자체에 시간대를 명시해야 실제로
+    # 적용됩니다. collected_at/analyzed_at/filtered_at 같은 TIMESTAMP 컬럼은 자바
+    # 코드가 아니라 Postgres 자신이 now()로 채우는데(schema.sql의 DEFAULT now()),
+    # 이 설정이 없으면 UTC로 시각을 찍어서 자정~오전 9시(한국시간) 사이에 일어난 일들이
+    # "하루 전" 날짜로 저장돼버립니다(예: 한국시간 8/23 02:00에 분석된 뉴스가
+    # analyzed_at::date로는 8/22로 찍힘). backend 컨테이너의 시간대(Dockerfile의
+    # TZ=Asia/Seoul)와 반드시 맞춰줘야 날짜 비교가 정확합니다.
+    command: ["postgres", "-c", "timezone=Asia/Seoul"]
     # 호스트에 포트를 노출하지 않습니다 — backend가 같은 Docker 네트워크 안에서 "db"라는
     # 서비스 이름으로 5432에 접속하는 데는 ports 매핑이 필요 없습니다(컨테이너 간 통신은
     # 컴포즈가 만든 내부 네트워크로 항상 가능). 외부에서 DB에 직접 접속할 이유가 없으므로,

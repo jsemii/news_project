@@ -26,7 +26,12 @@ public class NewsStructuringScheduler {
     // 간격이라 하루 중 정확히 몇 시에 실행될지 예측할 수 없는데, cron은 "매일 08/13/18시"처럼
     // 절대 시각을 지정할 수 있습니다). 값은 application.yml의 openai.schedule.cron에서
     // 읽어옵니다(기본값: "0 0 8,13,18 * * *" = 매일 08:00/13:00/18:00, 초 분 시 일 월 요일 순서).
-    @Scheduled(cron = "${openai.schedule.cron}")
+    // zone = "Asia/Seoul": cron의 "08:00" 같은 시각이 어느 시간대 기준인지 명시합니다.
+    // 이걸 안 쓰면 서버(컨테이너)의 기본 시간대를 따르는데, Docker 컨테이너는 보통 UTC를
+    // 기본값으로 씁니다 — 그러면 "08:00"이 한국 시간 오후 5시에 실행되는 식으로 완전히
+    // 어긋납니다(실제로 EC2 배포 후 겪은 문제 — docs/troubleshooting.md 참고). 로컬
+    // Windows에서는 시스템 시간대가 이미 한국이라 우연히 문제가 안 드러났었습니다.
+    @Scheduled(cron = "${openai.schedule.cron}", zone = "Asia/Seoul")
     public void structureNews() {
         log.info("Scheduled AI structuring started");
         StructuringSummary summary = newsStructuringService.structureAll();
