@@ -2,6 +2,7 @@ package com.jobnews.ai;
 
 import com.jobnews.news.News;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -37,13 +38,16 @@ public interface NewsAnalysisMapper {
     //              몇 건이 더 남았는지" 알려주기 위해 사용합니다.
     int countUnanalyzedNews();
 
-    // [무엇을 받아서] NewsRelevanceFilter가 "분석할 가치 없음"으로 판단한 뉴스의 id를 받습니다.
+    // [무엇을 받아서] NewsRelevanceFilter가 "분석할 가치 없음"으로 판단한 뉴스의 id와,
+    //              왜 걸러졌는지(FilterReason의 이름 문자열, 예: "TOO_OLD")를 받습니다.
     // [무엇을 하고] news_filtered_out에 표시를 남겨서, 이후 selectUnanalyzedNews/
     //              countUnanalyzedNews에서 이 뉴스가 다시는 조회되지 않게 합니다.
     //              (이 표시가 없으면 필터링된 뉴스가 영원히 "미분석"으로 남아 매번
     //              다시 걸러지는 문제가 있었습니다 — docs/troubleshooting.md 6번 참고.)
+    //              reason을 함께 남기는 이유는 "얼마나 많은 뉴스가 어떤 이유로 걸러졌는지"
+    //              나중에 추적할 수 있게 하기 위함입니다(18번 항목 참고).
     // [무엇을 돌려주는지] 반환값은 크게 의미 없음(영향받은 행 수).
-    int insertFilteredOut(long newsId);
+    int insertFilteredOut(@Param("newsId") long newsId, @Param("reason") String reason);
 
     // [무엇을 받아서] 저장할 공통 분석(NewsAnalysis) 하나를 받습니다.
     // [무엇을 하고] news_analysis 테이블에 1행을 추가합니다.

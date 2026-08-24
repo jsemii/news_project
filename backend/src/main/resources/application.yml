@@ -52,6 +52,8 @@ openai:
 ai:
   industries: [금융, 제조, 반도체, "플랫폼/IT서비스", "유통/커머스", 에너지, "바이오/헬스케어", "공공/정부"]
   jobs: [IT전산, 데이터분석, 백엔드]
+  structuring:
+    max-age-days: 2 # 수집된 지 이보다 오래된 뉴스는 AI 구조화 대상에서 제외(news_filtered_out에 TOO_OLD로 기록)
   filter:
     # 제목에 아래 키워드가 하나라도 포함되면 AI 구조화 대상에서 제외한다 (LLM 호출 없이 판단).
     exclude-title-keywords:

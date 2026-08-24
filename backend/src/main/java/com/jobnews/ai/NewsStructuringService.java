@@ -82,24 +82,31 @@ public class NewsStructuringService {
 
     // [무엇을 받아서] 아직 분석되지 않은 뉴스 하나를 받습니다.
     // [무엇을 하고]
-    //   1) 제목 키워드 필터를 먼저 봅니다 — 걸리면 크롤링도 안 하고 바로 제외합니다.
-    //   2) 원문을 크롤링합니다(이 메서드의 지역 변수 rawText에만 존재 — DB에 저장 안 함).
-    //   3) 크롤링 실패했거나 내용이 너무 짧으면 제외합니다(둘 다 "AI에게 넘길 만한
+    //   1) 수집된 지 너무 오래되지 않았는지 먼저 봅니다 — 걸리면 크롤링도 안 하고 바로
+    //      제외합니다(가장 저렴한 판단이라 제일 먼저 확인).
+    //   2) 제목 키워드 필터를 봅니다 — 걸리면 마찬가지로 크롤링 없이 바로 제외합니다.
+    //   3) 원문을 크롤링합니다(이 메서드의 지역 변수 rawText에만 존재 — DB에 저장 안 함).
+    //   4) 크롤링 실패했거나 내용이 너무 짧으면 제외합니다(둘 다 "AI에게 넘길 만한
     //      내용이 없다"는 같은 결론이라 같은 처리).
-    //   4) 1단계(일반 요약) 호출 → 실패하면 이 뉴스는 FAILED로 끝냅니다.
-    //   5) 2단계(직무별 재해석) 호출 → 실패하면 1단계 결과까지 통째로 버리고 FAILED로
+    //   5) 1단계(일반 요약) 호출 → 실패하면 이 뉴스는 FAILED로 끝냅니다.
+    //   6) 2단계(직무별 재해석) 호출 → 실패하면 1단계 결과까지 통째로 버리고 FAILED로
     //      끝냅니다(반쪽 데이터를 안 남기기 위함 — NewsAnalysisSaver 주석 참고).
-    //   6) 둘 다 성공하면 저장합니다.
+    //   7) 둘 다 성공하면 저장합니다.
     // [무엇을 돌려주는지] 이 뉴스가 필터링/성공/실패 중 무엇이었는지.
     private StructureOutcome structureOne(News news) {
+        if (newsRelevanceFilter.isTooOld(news)) {
+            markFilteredOut(news, FilterReason.TOO_OLD);
+            return StructureOutcome.FILTERED;
+        }
+
         if (newsRelevanceFilter.isTitleExcluded(news)) {
-            markFilteredOut(news, "title excluded");
+            markFilteredOut(news, FilterReason.TITLE_EXCLUDED);
             return StructureOutcome.FILTERED;
         }
 
         String rawText = tryCrawl(news);
         if (newsRelevanceFilter.isContentTooShort(rawText)) {
-            markFilteredOut(news, "crawled content missing or too short");
+            markFilteredOut(news, FilterReason.CONTENT_TOO_SHORT);
             return StructureOutcome.FILTERED;
         }
 
@@ -137,8 +144,11 @@ public class NewsStructuringService {
     // 크롤링 실패도 이 표시를 남기는 이유: ArticleContentFetcher는 재시도를 안 하기로
     // 했고(사이트 구조 변경 등 영구적인 실패일 가능성이 높음), 재시도해도 똑같이 실패할
     // 가능성이 높은 걸 매 배치 다시 시도하는 것보다는 한 번 포기하는 편이 낫다고 판단했습니다.
-    private void markFilteredOut(News news, String reason) {
-        newsAnalysisMapper.insertFilteredOut(news.getId());
+    // reason을 FilterReason(자유 문장이 아니라 정해진 값)으로 받는 이유는 news_filtered_out.reason에
+    // 그대로 저장되기 때문입니다 — 나중에 "얼마나 많은 뉴스가 어떤 이유로 걸러졌는지"
+    // 집계할 때 값이 표준화돼 있어야 의미가 있습니다.
+    private void markFilteredOut(News news, FilterReason reason) {
+        newsAnalysisMapper.insertFilteredOut(news.getId(), reason.name());
         log.debug("[newsId={}] filtered out before/after crawl ({})", news.getId(), reason);
     }
 

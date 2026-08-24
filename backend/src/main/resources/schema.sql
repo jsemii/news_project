@@ -58,7 +58,12 @@ CREATE TABLE IF NOT EXISTS news_job_analysis (
 -- 행이 안 생기기 때문에 "아직 분석 안 된 뉴스" 조회(selectUnanalyzedNews)에서 매번 다시
 -- 걸려서 영원히 같은 뉴스를 반복해서 재검토하게 된다(실제로 겪은 문제 — docs/troubleshooting.md
 -- 6번 참고). news_analysis와 이 테이블 중 "둘 중 하나라도 있으면" 처리 완료로 취급한다.
+-- reason: 왜 걸러졌는지(FilterReason enum 값, 예: TITLE_EXCLUDED/CONTENT_TOO_SHORT/TOO_OLD)를
+-- 남겨서 나중에 "어떤 이유로 얼마나 걸러졌는지" 집계하거나 조회할 수 있게 한다(추적 가능하게
+-- 하기 위함 — docs/troubleshooting.md 18번 항목 참고). DEFAULT 'UNKNOWN'은 이 컬럼이 생기기
+-- 전에 이미 저장돼 있던 기존 행들을 위한 값이다.
 CREATE TABLE IF NOT EXISTS news_filtered_out (
     news_id     BIGINT PRIMARY KEY REFERENCES news(id),
-    filtered_at TIMESTAMP NOT NULL DEFAULT now()
+    filtered_at TIMESTAMP NOT NULL DEFAULT now(),
+    reason      VARCHAR(50) NOT NULL DEFAULT 'UNKNOWN'
 );
