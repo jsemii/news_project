@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+    [전체 흐름에서의 위치] "오늘 한 줄 요약" 기능의 SQL입니다(쓰는 쪽).
+-->
+<mapper namespace="com.jobnews.ai.DailyHighlightMapper">
+
+    <!--
+        BriefingMapper.selectTopBriefings와 같은 날짜 기준(COALESCE(published_at,
+        collected_at)::date)을 씁니다 — "오늘의 브리핑"과 "오늘 한 줄 요약"이 서로 다른
+        뉴스 집합을 보는 모순을 막기 위함입니다. importance_score 내림차순으로 정렬하는
+        이유는 특별히 순서가 중요해서가 아니라, 프롬프트에 넣을 때 중요한 뉴스가 먼저
+        보이는 편이 자연스럽기 때문입니다.
+    -->
+    <select id="selectSummariesForHighlight" resultType="string">
+        SELECT na.summary
+        FROM news n
+        JOIN news_analysis na ON na.news_id = n.id
+        WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
+        AND na.importance_score >= #{minScore}
+        ORDER BY na.importance_score DESC
+    </select>
+
+    <insert id="upsertHighlight" parameterType="com.jobnews.ai.DailyHighlight">
+        INSERT INTO daily_highlight (briefing_date, headline, based_on_count, generated_at)
+        VALUES (#{briefingDate}, #{headline}, #{basedOnCount}, now())
+        ON CONFLICT (briefing_date) DO UPDATE
+        SET headline = EXCLUDED.headline,
+            based_on_count = EXCLUDED.based_on_count,
+            generated_at = now()
+    </insert>
+
+</mapper>
