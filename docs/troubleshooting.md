@@ -528,3 +528,70 @@ NOT NULL)으로 대체한다. `news_analysis`와의 JOIN 자체(분석 완료된
 안에는 안 들어서 화면엔 안 보이지만, 조건 자체는 정확함). 날짜별/직무별 조회, 데이터
 없는 날짜(빈 배열) 모두 회귀 없이 정상 동작하는 것도 확인했다. `./gradlew build`
 전체 테스트 통과.
+
+## 21. EC2에 DB 컬럼 추가 안돼, 다음날 배치가 계속 500으로 죽음
+#### 현상
+8/25 아침, "왜 오늘 브리핑이 안 뜨냐"는 질문을 받고 확인해보니 `POST
+/api/structuring/run`이 즉시 500 에러를 내고 있었다. 로그를 보니
+`column "reason" of relation "news_filtered_out" does not exist`였다.
+
+#### 원인
+19번 항목("오래된 뉴스 자동 제외")을 배포할 때, 코드(`git pull` + `docker compose
+up --build`)와 별개로 DB에 `ALTER TABLE news_filtered_out ADD COLUMN reason ...`을
+**직접 한 번 실행해야 한다**고 안내했었다. 그런데 그 배포 직후 확인은 `docker
+compose ps`로 컨테이너가 healthy인지만 봤을 뿐, 이 컬럼이 실제로 만들어졌는지는
+확인하지 않았다 — healthcheck가 `GET /api/briefings`만 호출해서 `news_filtered_out`
+테이블을 건드리지 않는 경로라, 컬럼이 없어도 healthy로 보였다. 그 상태로 하루가
+지나서, 배치가 제목 필터/본문 부족/너무 오래된 뉴스 중 하나라도 만나
+`markFilteredOut()`을 호출하는 순간(거의 매 배치마다 발생) 곧바로 예외가 터져
+전체 배치가 500으로 죽었다. 이 예외는 `structureOne()`의 필터 단계에서 던져지고
+`structureAll()`의 반복문에는 이걸 잡는 try/catch가 없어서, 배치 안에서 이미
+성공적으로 저장된 항목이 있어도 그 배치 자체가 실패로 끝나버렸다.
+
+#### 해결
+빠진 `ALTER TABLE`을 EC2에서 실행해서 컬럼을 추가했다. 이후 `POST
+/api/structuring/run`이 정상적으로 200을 반환하고 필터링/성공 건수가 함께 찍히는
+것을 확인했다.
+
+앞으로 이런 실수를 줄이려면: DB 스키마 변경이 포함된 배포는 "컨테이너가 healthy로
+뜬다"와 "실제로 그 기능이 동작한다"가 다르다는 걸 항상 염두에 둬야 한다. 배포
+직후에는 healthcheck 통과 여부만 볼 게 아니라, 스키마 변경과 관련된 API를 최소
+한 번은 실제로 호출해서 확인하는 습관이 필요하다.
+
+## 22. (21번 항목 재발 방지) 수동 ALTER TABLE 대신 Flyway로 스키마 관리 전환
+#### 배경
+21번 항목 사고(EC2에 컬럼 추가를 깜빡해서 배치가 계속 500으로 죽음)의 근본 원인은
+"DB 스키마 변경이 배포 파이프라인 밖에 있는, 사람이 기억해서 따로 실행하는 명령"으로
+존재했다는 점이었다. 지금까지는 `backend/src/main/resources/schema.sql` 하나로
+"지금 원하는 최종 스키마"만 유지하고, 실제 변경은 로컬/EC2 두 DB에 각각 `psql`로
+수동 `ALTER TABLE`을 실행해왔다. 이 방식 자체가 "한쪽에 적용을 깜빡할 수 있는" 구조적
+위험을 안고 있었다.
+
+#### 전환 내용
+Flyway를 도입했다. `backend/src/main/resources/db/migration/V1__baseline.sql`에
+기존 `schema.sql`의 최종 내용을 그대로 옮기고, `application.yml`에
+`spring.flyway.baseline-on-migrate: true`(+ `baseline-version: 1`)를 설정했다.
+로컬/EC2 DB 둘 다 이미 이 최종 상태까지 반영돼 있었으므로, 별도 CLI 명령 없이
+**그냥 앱을 재기동하기만 해도** Flyway가 "이미 이 버전까지 적용된 것"으로 자동
+표시(baseline)하고 넘어간다. 앞으로 스키마를 바꿀 땐 DB에 직접 `ALTER TABLE`을
+실행하는 대신 `V2__설명.sql`처럼 새 마이그레이션 파일을 추가하면, 앱 기동 시
+자동으로 실행된다 — 로컬/EC2 어느 한쪽에 적용을 깜빡하는 사고 자체가 구조적으로
+안 생긴다.
+
+Spring Boot 4.x부터 Flyway 연동 방식이 바뀌어서(웹 검색으로 확인), 예전처럼
+`flyway-core`만 추가하면 안 되고 `spring-boot-starter-flyway`(자동 설정) +
+`flyway-database-postgresql`(PostgreSQL 지원, 이제 별도 아티팩트로 분리됨) 둘 다
+필요했다. 둘 다 버전을 명시하지 않고 Spring Boot BOM에 맡겼는데 `flyway-core
+12.4.0`으로 정상 해석됐다(`./gradlew dependencies`로 직접 확인).
+
+`backend/src/main/resources/schema.sql`은 삭제했다 — 내용은 `V1__baseline.sql`에
+그대로 남아있고(git 히스토리에도 영구 보존), `spring.sql.init.mode`도 제거해서
+더 이상 아무 코드 경로에서도 이 파일을 읽지 않아 남겨둬도 혼란만 줄 뿐이었다.
+
+#### 검증
+로컬에서 실제로 앱을 재기동해서 로그에 `Current version of schema "public": 1` /
+`Schema "public" is up to date`가 찍히는 것과, `flyway_schema_history` 테이블에
+`version=1, type=BASELINE, success=t` 행이 정확히 하나 생긴 것을 SQL로 직접
+확인했다. 기존 데이터(515건)와 `news_filtered_out.reason` 컬럼도 그대로 유지되는
+것, `GET /api/briefings`/Swagger UI가 평소처럼 동작하는 것도 확인했다.
+`./gradlew build` 전체 테스트 통과.

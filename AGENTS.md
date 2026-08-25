@@ -101,3 +101,12 @@ API 키, DB 비밀번호, 토큰 등은 소스 코드나 `application.yml`에 �
   로직으로 구현됐는지 주석으로 연결해서 설명합니다.
 - 전공 용어를 쓸 때는 괄호로 쉬운 설명을 덧붙입니다. 예: DTO(계층 간 데이터를 주고받기 위한 전달용 객체)
 - 복잡한 SQL이나 로직 분기(if/else, try/catch)에는 "왜 이렇게 처리하는지" 의도를 주석으로 남깁니다.
+
+## 14. DB 스키마 변경은 Flyway 마이그레이션 파일로
+DB 스키마를 바꿔야 하면 기존 DB에 직접 `ALTER TABLE`을 실행하지 않고,
+`backend/src/main/resources/db/migration/`에 새 버전 파일(예: `V2__add_xxx_column.sql`)을
+추가합니다. 앱이 기동할 때 Flyway가 아직 적용 안 된 파일을 자동으로 실행하므로, 로컬/EC2 등
+어느 환경이든 코드를 받아서 재기동하기만 하면 스키마도 함께 맞춰집니다(사람이 수동으로
+DB마다 따로 적용하다가 한쪽에 깜빡해서 장애가 난 적이 있었습니다 — `docs/troubleshooting.md`
+참고). `V1__baseline.sql`은 Flyway 도입 이전 스키마를 그대로 옮긴 baseline이라 이후 절대
+수정하지 않습니다.

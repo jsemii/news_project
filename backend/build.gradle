@@ -25,6 +25,13 @@ dependencies {
 	implementation 'io.projectreactor.netty:reactor-netty'
 	implementation 'org.jsoup:jsoup:1.21.1'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
+	// Flyway: DB 스키마 변경 이력을 코드(마이그레이션 파일)로 관리하고 앱 기동 시 자동
+	// 적용해주는 라이브러리입니다. Spring Boot 4.x부터는 flyway-core만으로는 부족하고,
+	// 이 스타터(자동 설정 담당) + DB별 지원 아티팩트(flyway-database-postgresql)를 함께
+	// 넣어야 합니다(docs/troubleshooting.md 참고 — 예전엔 flyway-core 하나면 됐는데
+	// PostgreSQL 지원이 별도 아티팩트로 분리됨).
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.flywaydb:flyway-database-postgresql'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
