@@ -27,3 +27,26 @@ export async function fetchBriefings(job, date) {
 
   return response.json();
 }
+
+// [무엇을 받아서] date("yyyy-MM-dd" 날짜 문자열).
+// [무엇을 하고] GET /api/briefings/highlight를 호출합니다. 백엔드는 그날 "오늘 한 줄
+//              요약"이 아직 없으면(재료 뉴스가 부족했거나 배치가 안 돈 경우) 204 No
+//              Content로 응답합니다 — 이건 에러가 아니라 정상적인 "없음" 상태라서,
+//              이 함수는 이 경우 조용히 null을 돌려줍니다(예외를 던지지 않음).
+// [무엇을 돌려주는지] 요약이 있으면 { date, headline, basedOnCount } 객체, 없으면 null.
+//              그 외 실패(네트워크 오류 등)는 예외를 던져서 호출한 쪽이 처리하게 합니다.
+export async function fetchDailyHighlight(date) {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+
+  const response = await fetch(`/api/briefings/highlight?${params.toString()}`);
+
+  if (response.status === 204) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`오늘의 요약을 불러오지 못했습니다. (status: ${response.status})`);
+  }
+
+  return response.json();
+}

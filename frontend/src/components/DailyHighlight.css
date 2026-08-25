@@ -1,0 +1,30 @@
+/* DailyHighlight: BriefingPage 상단의 "오늘 한 줄 요약" 배너.
+   카드 목록과 구별되도록 강조 색(accent) 배경을 옅게 깔아 눈에 띄되,
+   장식 요소 없이 여백/테두리만으로 구조를 나누는 기존 톤을 유지합니다. */
+
+.daily-highlight {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+
+.daily-highlight__label {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.daily-highlight__text {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-h);
+}
