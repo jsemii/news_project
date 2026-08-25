@@ -96,4 +96,24 @@
         LIMIT #{limit}
     </select>
 
+    <!--
+        <constructor>: DailyHighlightItem은 생성자로만 값을 채우는 불변 객체라 setter가
+        없습니다. MyBatis가 setter 없이도 이 객체를 만들 수 있도록, 생성자 매개변수 순서
+        그대로 컬럼을 매핑합니다. 행이 없으면(그 날짜에 daily_highlight가 없으면) 이
+        쿼리는 null을 돌려줍니다 — 에러가 아니라 "아직 요약 없음"이라는 정상 상태입니다.
+    -->
+    <resultMap id="dailyHighlightMap" type="com.jobnews.briefing.DailyHighlightItem">
+        <constructor>
+            <idArg column="briefing_date" javaType="java.time.LocalDate"/>
+            <arg column="headline" javaType="java.lang.String"/>
+            <arg column="based_on_count" javaType="java.lang.Integer"/>
+        </constructor>
+    </resultMap>
+
+    <select id="selectHighlight" resultMap="dailyHighlightMap">
+        SELECT briefing_date, headline, based_on_count
+        FROM daily_highlight
+        WHERE briefing_date = #{date}
+    </select>
+
 </mapper>
