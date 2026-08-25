@@ -12,9 +12,22 @@ spring:
     username: appuser
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-  sql:
-    init:
-      mode: always
+  # Flyway: DB 스키마 변경 이력을 backend/src/main/resources/db/migration의 SQL
+  # 파일들로 관리하고, 앱이 뜰 때마다 자동으로 적용해줍니다(별도 명령 불필요). 예전에는
+  # 여기 spring.sql.init.mode: always로 schema.sql을 매번 실행했는데, 그 방식은 "스키마를
+  # 어떻게 바꿨는지"를 기록하지 않고 "지금 최종 모습"만 남겨서, 실제 변경은 로컬/EC2 DB에
+  # 각각 사람이 직접 ALTER TABLE을 실행해야 했습니다 — 이 과정에서 한쪽에 적용을 깜빡해
+  # 배치가 500 에러로 죽는 사고가 실제로 있었습니다(docs/troubleshooting.md 21번 항목).
+  flyway:
+    # baseline-on-migrate: 로컬/EC2 DB 둘 다 이미 데이터가 있고 Flyway 도입 전
+    # schema.sql 기준 최종 상태까지 반영된 상태입니다. Flyway가 관리 이력 테이블
+    # (flyway_schema_history)이 없는 걸 보고 "빈 DB"로 오해해서 V1을 처음부터 다시
+    # 실행하려고 하면 이미 있는 테이블과 충돌해서 에러가 납니다. 이 옵션을 켜두면,
+    # 관리 이력이 없는데 테이블은 이미 있는 상태를 만나면 V1을 실제로 실행하지 않고
+    # "이미 적용된 것으로 표시"만 하고 넘어갑니다.
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "schema.sql 최종 상태(reason 컬럼 포함) baseline"
 
 rss:
   sources:

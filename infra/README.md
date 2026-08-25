@@ -6,9 +6,17 @@
   `.env.example`만 커밋됨)
 - `nginx/` — `default.conf`: 프론트 정적 파일 서빙 + `/api`로 들어오는 요청을 backend
   컨테이너로 리버스 프록시
-- `postgres/` — (아직 미사용) DB 초기화 SQL, 볼륨 관련 설정을 위해 예약해둔 폴더. 현재는
-  `backend/src/main/resources/schema.sql`을 Spring Boot가 기동 시점에 직접 실행하는 방식이라
-  이 폴더에 파일이 없음.
+- `postgres/` — (아직 미사용) 볼륨 관련 설정 등을 위해 예약해둔 폴더. DB 스키마 관리는
+  Flyway가 담당하므로(아래 참고) 여기엔 파일이 없음.
+
+## DB 스키마 관리 (Flyway)
+DB 스키마 변경 이력은 `backend/src/main/resources/db/migration/`의 `V1__baseline.sql`,
+`V2__...sql`처럼 버전이 매겨진 SQL 파일로 관리한다. 앱이 뜰 때마다 Flyway가 아직 적용 안 된
+파일을 자동으로 실행한다 — 로컬/EC2 어느 쪽이든 코드를 받아서 재기동하기만 하면 스키마도
+같이 맞춰진다(예전처럼 사람이 `psql`로 직접 `ALTER TABLE`을 실행할 필요 없음). `V1__baseline.sql`은
+Flyway 도입 전까지 `schema.sql` 하나로 관리하던 스키마 전체를 그대로 옮긴 baseline이라 이후
+절대 수정하지 않는다 — 새 스키마 변경은 항상 새 버전 파일(`V2__...`)을 추가한다. 자세한 배경은
+`docs/troubleshooting.md`(Flyway 도입 항목) 참고.
 
 ## Dockerfile 위치
 `backend/Dockerfile`, `frontend/Dockerfile`처럼 각 애플리케이션 코드와 같은 폴더에 둔다(이
