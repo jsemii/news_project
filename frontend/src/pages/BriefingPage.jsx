@@ -127,12 +127,7 @@ function BriefingCard({ item }) {
         <span className="briefing-card__date">{formatDate(item.publishedAt)}</span>
       </div>
 
-      <a
-        className="briefing-card__title"
-        href={item.url}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className="briefing-card__title" href={item.url}>
         {item.title}
       </a>
 
