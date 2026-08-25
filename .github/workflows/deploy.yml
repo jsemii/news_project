@@ -1,0 +1,33 @@
+name: Deploy to EC2
+
+# main 브랜치에 push될 때마다 자동으로 실행됩니다. 러너에서 직접 빌드하지 않고, SSH로
+# EC2에 접속해서 EC2 위에서 git pull + docker compose build를 실행하는 방식입니다
+# (docker-compose.yml의 빌드 컨텍스트가 상대 경로라 실제 git 저장소 안에서 실행돼야 함).
+on:
+  push:
+    branches: [main]
+
+# 이 워크플로는 저장소에 아무것도 쓰지 않고 SSH로 명령만 전달하므로, 필요한 권한을
+# 읽기로 최소화합니다(최소 권한 원칙).
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        # appleboy/ssh-action: SSH 접속, known_hosts 처리, 키 파일 임시 저장/삭제를
+        # 대신 해주는 GitHub Actions 표준 액션입니다. 뜬 버전을 쓰지 않도록 v1.2.5로 고정합니다.
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          # host/username/key는 GitHub 저장소 Settings > Secrets and variables > Actions에서
+          # 사용자가 직접 등록합니다. DB_PASSWORD/OPENAI_API_KEY 같은 앱 비밀값은 여기 없고
+          # EC2의 infra/docker/.env에만 있습니다 — 이 워크플로는 그 값들을 전혀 모릅니다.
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/news_project
+            git pull origin main
+            bash infra/scripts/deploy.sh
