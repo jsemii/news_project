@@ -595,3 +595,47 @@ Spring Boot 4.x부터 Flyway 연동 방식이 바뀌어서(웹 검색으로 확�
 확인했다. 기존 데이터(515건)와 `news_filtered_out.reason` 컬럼도 그대로 유지되는
 것, `GET /api/briefings`/Swagger UI가 평소처럼 동작하는 것도 확인했다.
 `./gradlew build` 전체 테스트 통과.
+
+## 23. EC2 디스크 공간 부족으로 재배포가 "성공한 것처럼" 보이면서 실제로는 예전 코드가 계속 돎
+#### 현상
+Flyway 전환(22번 항목)을 EC2에 배포했는데, `git pull` + `docker compose up --build -d`를
+실행하고 `docker compose ps`도 `healthy`로 나왔는데도 `flyway_schema_history` 테이블
+자체가 없다는 에러가 났다. 로그를 자세히 보니 `backend` 컨테이너가 **18시간 전부터
+떠있던, 재배포 이전의 예전 컨테이너 그대로**였다 — 재배포 명령이 컨테이너를 새로
+만들지 않은 것이다.
+
+#### 원인 (여러 겹으로 겹친 문제)
+1. `docker compose up --build -d`가 이미지를 새로 빌드하려다 **디스크 공간 부족(No
+   space left on device)** 으로 조용히 실패했다. Gradle Wrapper가 빌드 스테이지 안에서
+   Gradle 배포판(zip)을 내려받아 압축을 푸는 과정에서 디스크가 꽉 차 실패했는데, 이
+   실패가 화면에 명확히 안 보이고(백그라운드로 여러 컨테이너를 한번에 올리는 명령이라
+   에러가 다른 로그에 묻힘), 결과적으로 이미지가 안 바뀌었으니 Docker는 "바꿀 이유가
+   없다"고 판단해 예전 컨테이너를 그대로 뒀다. **"컨테이너가 healthy로 뜬다"가 "방금
+   빌드한 새 코드로 떴다"를 보장하지 않는다**는 걸 다시 한번 확인한 사고다(21번 항목과
+   같은 함정).
+2. 디스크가 왜 꽉 찼는지 파보니(`df -h`, `du -sh`), Docker 엔진이 자체적으로 보고하는
+   사용량(`docker system df`, 약 2.5GB)과 실제 디스크 사용량(`/var/lib/containerd`
+   2.3GB 포함, 총 6.5GB) 사이에 큰 차이가 있었다 — `docker builder prune`/`docker
+   image prune`을 돌려도 "회수 가능 0B"로 나왔는데, 이는 진행 중이던 빌드를 사람이
+   실수로 Ctrl+Z(작업 일시정지)로 끊어버려서 containerd에 참조가 애매한 상태로 남은
+   빌드 캐시가 있었기 때문으로 보인다. Docker 엔진 자체의 북키핑과 containerd의 실제
+   저장소 상태가 어긋난 것.
+
+#### 해결
+1. `sudo systemctl restart docker`로 Docker 데몬(과 containerd)을 재시작했더니, 그제야
+   빌드 캐시가 "회수 가능 987MB(100%)"로 바뀌었다 — 재시작이 참조 상태를 다시 계산하게
+   만든 것으로 보인다. `docker builder prune -af`로 실제 회수(987MB, 여유 공간
+   138MB→1.6GB로 회복)한 뒤에야 `docker compose build --no-cache backend`가 정상
+   완료됐다. 이 과정에서 `docker volume`은 한 번도 건드리지 않아 Postgres 데이터는
+   안전했다.
+2. 재빌드 후 `docker compose up -d --force-recreate backend`로 컨테이너를 강제
+   교체하고, 로그에 `Successfully baselined schema with version: 1`이 찍히는 것과
+   `flyway_schema_history` 조회 결과(`version=1, type=BASELINE, success=t`)가 로컬과
+   동일하게 나오는 것을 확인했다.
+
+앞으로 참고할 점: EC2 재배포 후에는 `docker compose ps`의 `healthy` 상태만 볼 게
+아니라 **`CREATED` 컬럼(컨테이너가 언제 만들어졌는지)이 방금 실행한 명령 시각과
+맞는지**까지 확인하는 습관이 필요하다 — 18시간 전 컨테이너가 계속 "healthy"로 떠
+있어도 겉보기엔 정상으로 보이기 때문이다. 그리고 `docker compose build` 같은 원격
+서버 명령은 끝까지 기다리고 중간에 Ctrl+Z로 끊지 않는다(끊으면 이번처럼 디스크에
+애매한 상태의 캐시가 남을 수 있다).
