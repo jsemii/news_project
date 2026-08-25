@@ -14,13 +14,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * [전체 흐름에서의 위치] "AI 뉴스 구조화" 단계의 핵심 실행부입니다. OpenAI를 **두 번**
- * 나눠서 호출합니다(저작권 리스크 완화를 위한 설계 — docs/troubleshooting.md 참고).
- * 1단계(analyzeGeneral)는 크롤링한 원문(메모리 상의 값, DB에 없음)을 읽고 일반 요약을
- * 만들고, 2단계(analyzeJobs)는 원문이 아니라 1단계가 만든 요약을 입력으로 받아
- * 직무별(IT전산/데이터분석/백엔드) 재해석을 만듭니다. 두 단계 모두 "원문/요약 문장을
- * 그대로 옮기지 말고 완전히 새로 쓰라"는 지시를 프롬프트에 명시해서, 표절처럼 보일 수
- * 있는 문장 재사용을 막습니다.
+ * [전체 흐름에서의 위치] "AI 뉴스 구조화" 단계의 핵심 실행부입니다. OpenAI를 **세 가지
+ * 목적**으로 나눠서 호출합니다(저작권 리스크 완화를 위한 설계 — docs/troubleshooting.md
+ * 참고). 1단계(analyzeGeneral)는 크롤링한 원문(메모리 상의 값, DB에 없음)을 읽고 일반
+ * 요약을 만들고, 2단계(analyzeJobs)는 원문이 아니라 1단계가 만든 요약을 입력으로 받아
+ * 직무별(IT전산/데이터분석/백엔드) 재해석을 만듭니다. 세 번째(analyzeDailyHighlight)는
+ * 뉴스 1건이 아니라 "그날 중요도 높은 뉴스 여러 건의 요약 목록"을 입력으로 받아, 그
+ * 뉴스들을 관통하는 공통 흐름을 한 문장으로 뽑아내는 별도 기능("오늘 한 줄 요약")입니다.
+ * 세 경우 모두 "원문/요약 문장을 그대로 옮기지 말고 완전히 새로 쓰라"는 지시를 프롬프트에
+ * 명시해서, 표절처럼 보일 수 있는 문장 재사용을 막습니다.
  */
 @Component
 public class OpenAiClient {
@@ -79,6 +81,25 @@ public class OpenAiClient {
         JsonNode parsed = call(systemPrompt, userPrompt);
 
         return extractJobs(parsed.path("jobs"));
+    }
+
+    /**
+     * [3단계·별도 기능] [무엇을 받아서] 그날 importance_score가 기준 이상인 뉴스들의
+     *              1단계 일반 요약(news_analysis.summary) 목록을 받습니다. 원문이 아니라
+     *              이미 한 번 정확성 검증을 거친 요약들이 재료입니다.
+     * [무엇을 하고] 이 요약들을 관통하는 공통된 흐름/변화가 있는지 LLM에게 찾게 합니다.
+     *              개별 뉴스 나열이 아니라 진짜 흐름을 찾도록 강하게 지시하고, 뚜렷한
+     *              흐름이 없으면 억지로 엮지 말고 정직하게 그렇다고 답하도록 허용합니다
+     *              (DailyHighlightService가 재료가 너무 적을 때는 아예 이 메서드를
+     *              호출하지 않으므로, 여기 들어오는 시점엔 이미 최소 건수 이상입니다).
+     * [무엇을 돌려주는지] 한 문장(headline) 문자열. 실패하면 AiStructureException을 던집니다.
+     */
+    public String analyzeDailyHighlight(List<String> summaries) {
+        String systemPrompt = buildDailyHighlightSystemPrompt();
+        String userPrompt = buildDailyHighlightUserPrompt(summaries);
+        JsonNode parsed = call(systemPrompt, userPrompt);
+
+        return parsed.path("headline").asString();
     }
 
     // [무엇을 받아서] 시스템 프롬프트와 사용자 프롬프트를 받습니다.
@@ -252,6 +273,53 @@ public class OpenAiClient {
                 중요: 입력으로 받은 요약 문장을 그대로 옮겨 적지 마세요. 그 안의 사실관계를 바탕으로
                 각 직무 관점에서 완전히 새로운 문장으로 재해석해서 작성하세요.
                 """.formatted(jobKeysExample, taxonomyProperties.getJobs().size(), jobList);
+    }
+
+    // [무엇을 받아서] 입력값 없음.
+    // [무엇을 하고] 3단계("오늘 한 줄 요약") 시스템 프롬프트를 만듭니다. 핵심은 (1) 개별
+    //              뉴스 나열이 아니라 여러 뉴스를 관통하는 흐름/변화를 찾으라는 지시,
+    //              (2) buildGeneralSystemPrompt의 "규칙 B"와 같은 강도로 "요약에 실제로
+    //              나온 내용에만 근거하고 없는 내용을 추측하지 말라"는 지시(할루시네이션
+    //              방지 — 8번 항목 트러블슈팅에서 검증된 방식 재사용), (3) 뚜렷한 흐름이
+    //              없으면 억지로 엮지 말고 정직하게 그렇다고 답해도 된다는 명시적 허용입니다.
+    // [무엇을 돌려주는지] 3단계 시스템 프롬프트 문자열.
+    private String buildDailyHighlightSystemPrompt() {
+        return """
+                당신은 여러 뉴스 요약을 함께 읽고 그 사이의 공통된 흐름이나 변화를 짚어내는
+                애널리스트입니다. 반드시 아래 JSON 형식으로만 응답하세요. 다른 설명은 붙이지 마세요.
+
+                {
+                  "headline": "한 문장(약 40~80자)"
+                }
+
+                [규칙 — 반드시 지킬 것]
+                1. 개별 뉴스를 "A는 ~였고, B는 ~였다"처럼 나열하지 마세요. 여러 뉴스를 관통하는
+                더 큰 흐름이나 변화를 찾아야 합니다(예: "여러 산업에서 AI 투자가 동시다발적으로
+                확대되는 흐름", "금리·환율 관련 불확실성이 커지는 흐름").
+                2. 아래에 주어지는 요약들에 실제로 나타난 내용에만 근거하세요. 요약에 없는 사실,
+                전망, 예측을 추측해서 덧붙이지 마세요.
+                3. 요약들을 읽어봐도 뚜렷한 공통 흐름이 없다면, 억지로 하나로 엮지 말고 그 사실
+                그대로 정직하게 답하세요(예: "오늘은 특정 흐름 없이 다양한 이슈가 분산됨"). 없는
+                연결고리를 지어내는 것보다 정직하게 "흐름 없음"이라고 답하는 것이 낫습니다.
+
+                자체 점검: 답변을 작성한 뒤, 다음 세 가지를 스스로 확인하세요.
+                (1) 이 문장이 아래 요약들에 실제로 나온 내용에만 근거하는가?
+                (2) 요약에 없는 추측이나 전망을 덧붙이지 않았는가?
+                (3) 여러 뉴스를 나열한 것이 아니라 진짜 공통된 흐름/변화를 짚었는가(또는 흐름이
+                없다는 사실을 정직하게 답했는가)?
+                셋 중 하나라도 어긋난다면, 최종 답변을 보내기 전에 그 부분을 수정하세요.
+                """;
+    }
+
+    // [무엇을 받아서] 그날 기준 점수 이상인 뉴스들의 일반 요약 목록을 받습니다.
+    // [무엇을 하고] 각 요약에 번호를 매겨 하나의 사용자 프롬프트 문자열로 합칩니다.
+    // [무엇을 돌려주는지] 3단계 사용자 프롬프트 문자열.
+    private String buildDailyHighlightUserPrompt(List<String> summaries) {
+        StringBuilder sb = new StringBuilder("오늘의 주요 뉴스 요약들:\n\n");
+        for (int i = 0; i < summaries.size(); i++) {
+            sb.append(i + 1).append(". ").append(summaries.get(i)).append("\n\n");
+        }
+        return sb.toString();
     }
 
     private int clampImportanceScore(int rawScore) {

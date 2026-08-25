@@ -32,4 +32,11 @@ public interface BriefingMapper {
     // [무엇을 돌려주는지] job/whyItMatters/keySkills가 채워진 BriefingRow 목록.
     List<BriefingRow> selectTopBriefingsByJob(@Param("job") String job, @Param("date") LocalDate date,
                                                @Param("limit") int limit);
+
+    // [무엇을 받아서] 조회할 날짜를 받습니다.
+    // [무엇을 하고] daily_highlight에서 그 날짜의 "오늘 한 줄 요약" 행을 찾습니다(ai
+    //              패키지의 DailyHighlightService가 써놓은 값을 읽기만 합니다).
+    // [무엇을 돌려주는지] 그 날짜에 행이 있으면 DailyHighlightItem, 없으면 null(재료가
+    //              부족했거나 아직 배치가 안 돈 경우 — 에러가 아니라 정상 상태입니다).
+    DailyHighlightItem selectHighlight(@Param("date") LocalDate date);
 }

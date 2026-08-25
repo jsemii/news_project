@@ -706,3 +706,27 @@ GitHub Actions의 공개 IP 대역을 실행 시점에 동적으로 조회해 �
 - "8세 소녀... 아메바 감염" 기사: 8점 → **2점** (industries 여전히 `[]`, 무관 판정 유지)
 - "내년 '800조+α' 슈퍼예산…반도체발 국세수입 600조" 기사: 8점 → **6점**
   (industries `[반도체, 플랫폼/IT서비스]`, 간접 연관으로 적정 하향)
+
+## 26. MyBatis <constructor> 매핑에서 int 매개변수를 가진 생성자를 못 찾음
+#### 현상
+"오늘 한 줄 요약" 기능에서 daily_highlight 테이블을 조회하는 `BriefingMapper.
+selectHighlight`를 만들 때, 불변 DTO(`DailyHighlightItem`, setter 없이 생성자로만
+값을 채움)를 MyBatis의 `<constructor>` 태그로 매핑했다. 실제로 값이 있는 날짜를
+조회하면 200이 아니라 500 에러가 났다.
+
+#### 원인
+로그의 실제 원인: `ReflectionException: Error instantiating class
+com.jobnews.briefing.DailyHighlightItem with invalid types (LocalDate,String,Integer)
+... NoSuchMethodException: DailyHighlightItem.<init>(LocalDate,String,Integer)`.
+`DailyHighlightItem`의 실제 생성자는 세 번째 매개변수가 `int`(primitive)였는데,
+MyBatis가 JDBC INT 컬럼 값을 항상 boxed `Integer`로 취급해서 생성자를 찾다 보니
+`int` 시그니처와 매칭이 안 됐다. `<arg javaType="int"/>`로 명시해도 이 버전
+(mybatis-3.5.17)에서는 실제 생성자 탐색에 반영되지 않았다.
+
+#### 해결
+`DailyHighlightItem`의 `basedOnCount` 필드/생성자 매개변수를 `int`에서 `Integer`
+(래퍼 타입)로 바꾸고, XML의 `javaType`도 `java.lang.Integer`로 맞췄다. 이후 로컬
+서버로 실제 200 응답(`{"date":"...","headline":"...","basedOnCount":3}`)과 204
+응답(데이터 없는 날짜) 둘 다 정상 확인했다. 앞으로 MyBatis `<constructor>` 매핑을
+쓰는 불변 DTO를 새로 만들 때는, 숫자 필드를 처음부터 래퍼 타입(Integer/Long 등)으로
+선언하는 편이 이런 시행착오를 피할 수 있다.

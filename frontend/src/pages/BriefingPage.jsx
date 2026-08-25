@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchBriefings } from "../api/briefingApi";
 import JobSelector from "../components/JobSelector";
 import DateNavigator from "../components/DateNavigator";
+import DailyHighlight from "../components/DailyHighlight";
 import { getTodayString } from "../utils/dateUtils";
 import "./BriefingPage.css";
 
@@ -83,6 +84,8 @@ export default function BriefingPage() {
         <p className="briefing-page__subtitle">
           관심 직무를 선택하면 그 직무 관점에서 뉴스를 다시 읽어드립니다.
         </p>
+        <DailyHighlight date={selectedDate} />
+
         <div className="briefing-page__controls">
           <JobSelector selectedJob={selectedJob} onSelect={setSelectedJob} />
           <DateNavigator selectedDate={selectedDate} onChange={setSelectedDate} />

@@ -34,19 +34,22 @@ public class NewsStructuringService {
     private final NewsAnalysisMapper newsAnalysisMapper;
     private final OpenAiProperties openAiProperties;
     private final NewsRelevanceFilter newsRelevanceFilter;
+    private final DailyHighlightService dailyHighlightService;
 
     public NewsStructuringService(ArticleContentFetcher articleContentFetcher,
                                    OpenAiClient openAiClient,
                                    NewsAnalysisSaver newsAnalysisSaver,
                                    NewsAnalysisMapper newsAnalysisMapper,
                                    OpenAiProperties openAiProperties,
-                                   NewsRelevanceFilter newsRelevanceFilter) {
+                                   NewsRelevanceFilter newsRelevanceFilter,
+                                   DailyHighlightService dailyHighlightService) {
         this.articleContentFetcher = articleContentFetcher;
         this.openAiClient = openAiClient;
         this.newsAnalysisSaver = newsAnalysisSaver;
         this.newsAnalysisMapper = newsAnalysisMapper;
         this.openAiProperties = openAiProperties;
         this.newsRelevanceFilter = newsRelevanceFilter;
+        this.dailyHighlightService = dailyHighlightService;
     }
 
     /**
@@ -72,8 +75,26 @@ public class NewsStructuringService {
             }
         }
 
+        if (succeeded > 0) {
+            recomputeDailyHighlight();
+        }
+
         int remainingBacklog = newsAnalysisMapper.countUnanalyzedNews();
         return new StructuringSummary(unanalyzed.size(), filteredOut, succeeded, failed, remainingBacklog);
+    }
+
+    // [무엇을 받아서] 입력값 없음.
+    // [무엇을 하고] DailyHighlightService.recomputeForToday()를 호출합니다("오늘 한 줄
+    //              요약"을 이번 배치에서 새로 분석된 내용까지 반영해 다시 계산). try/catch로
+    //              감싸는 이유: 이 기능은 부가 기능이라, 여기서 실패(예: OpenAI 일시적
+    //              오류)하더라도 방금 정상적으로 끝난 뉴스 구조화 배치 결과 자체를 실패로
+    //              만들면 안 되기 때문입니다 — 로그만 남기고 넘어갑니다.
+    private void recomputeDailyHighlight() {
+        try {
+            dailyHighlightService.recomputeForToday();
+        } catch (Exception e) {
+            log.warn("Failed to recompute daily highlight, skipping this cycle", e);
+        }
     }
 
     private enum StructureOutcome {

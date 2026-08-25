@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -88,6 +89,29 @@ public class BriefingController {
 
         List<BriefingRow> rows = briefingMapper.selectTopBriefingsByJob(job, targetDate, briefingProperties.getTopN());
         return rows.stream().map(row -> toItem(row, true)).toList();
+    }
+
+    // [무엇을 받아서] date 쿼리 파라미터(선택, yyyy-MM-dd). 생략하면 오늘.
+    // [무엇을 하고] daily_highlight에서 그 날짜의 "오늘 한 줄 요약"을 조회합니다. job
+    //              파라미터가 없는 이유: 이 요약은 직무 필터 없는 전체 뉴스를 대상으로
+    //              계산되므로(요구사항), 직무별로 달라지지 않습니다.
+    // [무엇을 돌려주는지] 그 날짜에 요약이 있으면 200 + DailyHighlightItem, 없으면
+    //              204 No Content입니다(에러 아님 — GET /api/briefings가 빈 배열로
+    //              응답하는 것과 같은 철학. 재료 뉴스가 부족했거나 아직 배치가 안 돈
+    //              경우가 정상적으로 있을 수 있기 때문입니다).
+    @GetMapping("/highlight")
+    @Operation(
+            summary = "오늘(또는 지정한 날짜)의 한 줄 요약 조회",
+            description = "그날 importance_score가 기준 이상인 뉴스들을 관통하는 공통 흐름을 LLM이 뽑아낸 한 문장을 반환합니다. "
+                    + "재료 뉴스가 너무 적었거나 아직 계산되지 않은 날짜는 204 No Content를 반환합니다(에러 아님)."
+    )
+    public ResponseEntity<DailyHighlightItem> highlight(
+            @Parameter(description = "조회할 날짜(yyyy-MM-dd). 생략하면 오늘.")
+            @RequestParam(required = false) String date
+    ) {
+        LocalDate targetDate = resolveDate(date);
+        DailyHighlightItem item = briefingMapper.selectHighlight(targetDate);
+        return item == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(item);
     }
 
     // [무엇을 받아서] date 쿼리 파라미터 원본 문자열(없으면 null).
