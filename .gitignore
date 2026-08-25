@@ -22,3 +22,4 @@ infra/docker/docker-compose.override.yml
 .idea/
 .vscode/
 .DS_Store
+.claude/settings.json 
