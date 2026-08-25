@@ -30,4 +30,18 @@ public interface DailyHighlightMapper {
     //              기본키라서 ON CONFLICT로 멱등하게 처리됩니다.
     // [무엇을 돌려주는지] 반환값은 크게 의미 없음(영향받은 행 수).
     int upsertHighlight(DailyHighlight highlight);
+
+    // [무엇을 받아서] 입력값 없음.
+    // [무엇을 하고] news_analysis가 존재하는(=AI 구조화가 최소 1건이라도 끝난) 뉴스들의
+    //              "오늘의 브리핑" 날짜 기준(COALESCE(published_at, collected_at))을
+    //              중복 없이 모읍니다 — 뉴스가 수집되기 시작한 이후 하루라도 뉴스가 있었던
+    //              날짜 전체입니다.
+    // [무엇을 돌려주는지] 날짜 오름차순 목록. DailyHighlightService.backfillMissing()이
+    //              이 목록에서 아직 daily_highlight가 없는 날짜만 골라 계산합니다.
+    List<LocalDate> selectDistinctBriefingDates();
+
+    // [무엇을 받아서] 입력값 없음.
+    // [무엇을 하고] daily_highlight에 이미 값이 있는 날짜를 전부 가져옵니다.
+    // [무엇을 돌려주는지] 이미 계산된 날짜 목록(순서 무관 — 호출하는 쪽이 Set으로 바꿔 사용).
+    List<LocalDate> selectExistingHighlightDates();
 }

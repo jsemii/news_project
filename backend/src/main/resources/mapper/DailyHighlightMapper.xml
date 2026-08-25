@@ -30,4 +30,15 @@
             generated_at = now()
     </insert>
 
+    <select id="selectDistinctBriefingDates" resultType="java.time.LocalDate">
+        SELECT DISTINCT COALESCE(n.published_at, n.collected_at)::date AS briefing_date
+        FROM news n
+        JOIN news_analysis na ON na.news_id = n.id
+        ORDER BY briefing_date
+    </select>
+
+    <select id="selectExistingHighlightDates" resultType="java.time.LocalDate">
+        SELECT briefing_date FROM daily_highlight
+    </select>
+
 </mapper>

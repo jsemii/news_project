@@ -27,9 +27,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class StructuringController {
 
     private final NewsStructuringService newsStructuringService;
+    private final DailyHighlightService dailyHighlightService;
 
-    public StructuringController(NewsStructuringService newsStructuringService) {
+    public StructuringController(NewsStructuringService newsStructuringService,
+                                  DailyHighlightService dailyHighlightService) {
         this.newsStructuringService = newsStructuringService;
+        this.dailyHighlightService = dailyHighlightService;
     }
 
     // [무엇을 받아서] HTTP 요청 본문 없음(그냥 POST 요청 자체가 "지금 실행해줘"라는 신호입니다).
@@ -51,5 +54,25 @@ public class StructuringController {
     )
     public StructuringSummary run() {
         return newsStructuringService.structureAll();
+    }
+
+    // [무엇을 받아서] HTTP 요청 본문 없음.
+    // [무엇을 하고] "오늘 한 줄 요약" 기능을 새로 추가한 뒤, 뉴스가 수집되기 시작한
+    //              이후의 과거 날짜들에는 아직 daily_highlight가 없어서(이 기능이 생기기
+    //              전에 지나간 날들이라) 브리핑 화면에 아무것도 안 뜨는 문제가 있었습니다.
+    //              이 엔드포인트를 한 번 호출하면, 뉴스 분석이 있었던 날짜 전체를 훑어서
+    //              아직 계산 안 된 날짜만 소급으로 채웁니다. 이미 계산된 날짜는 다시
+    //              계산하지 않습니다(불필요한 OpenAI 호출 방지) — 그래서 여러 번 호출해도
+    //              안전합니다(멱등).
+    // [무엇을 돌려주는지] 이번 실행에서 몇 개 날짜를 훑었고, 몇 개를 새로 계산했고, 몇 개를
+    //              재료 부족(3건 미만)으로 건너뛰었는지 요약.
+    @PostMapping("/backfill-highlights")
+    @Operation(
+            summary = "오늘 한 줄 요약을 과거 날짜까지 소급 계산",
+            description = "뉴스 분석이 있었던 날짜 중 daily_highlight가 아직 없는 날짜만 골라 계산합니다. "
+                    + "이미 계산된 날짜는 건너뛰므로 여러 번 호출해도 안전합니다."
+    )
+    public DailyHighlightBackfillSummary backfillHighlights() {
+        return dailyHighlightService.backfillMissing();
     }
 }
