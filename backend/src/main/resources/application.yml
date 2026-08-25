@@ -90,3 +90,7 @@ ai:
 
 briefing:
   top-n: 10 # 조회 시 하루 상위 몇 건까지 보여줄지
+
+daily-highlight:
+  min-importance-score: 6 # 이 점수 이상인 뉴스만 "오늘 한 줄 요약"의 재료로 사용
+  min-news-count: 3 # 재료 건수가 이보다 적으면 LLM을 호출하지 않음(억지 연결 방지)
