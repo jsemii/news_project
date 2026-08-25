@@ -27,6 +27,24 @@ Flyway 도입 전까지 `schema.sql` 하나로 관리하던 스키마 전체를 
 설정 참고).
 
 ## 배포 방법 (EC2 등)
+
+### 자동 배포 (GitHub Actions)
+`main` 브랜치에 push되면 `.github/workflows/deploy.yml`이 트리거되어, SSH로 EC2에
+접속해 `git pull` + `infra/scripts/deploy.sh`(빌드 캐시 정리 → `docker compose
+up --build -d` → 컨테이너 상태 확인)를 자동 실행한다. 컨테이너가 `unhealthy`/`Exit`
+상태면 스크립트가 로그를 남기고 실패로 끝나서, GitHub 저장소의 Actions 탭에서
+바로 실패 여부와 원인 로그를 확인할 수 있다.
+
+필요한 GitHub Secrets(저장소 Settings → Secrets and variables → Actions에 등록):
+- `EC2_HOST`, `EC2_USERNAME`, `EC2_SSH_KEY` (SSH 접속용 — `DB_PASSWORD`/
+  `OPENAI_API_KEY` 같은 앱 비밀값은 여기 없고 EC2의 `infra/docker/.env`에만 있으며,
+  이 워크플로는 그 값들을 전혀 모른다)
+
+EC2 보안 그룹의 22번 포트(SSH)는 GitHub Actions 러너가 매번 다른 IP에서 접속하므로
+`0.0.0.0/0`을 허용해야 한다(자세한 배경은 `docs/troubleshooting.md` 24번 항목 참고).
+SSH는 키 기반 인증만 허용되므로 노출 범위는 제한적이다.
+
+### 수동 배포 (자동 배포가 안 될 때의 대안)
 1. `infra/docker/.env.example`을 참고해 `infra/docker/.env`를 만들고 `DB_PASSWORD`,
    `OPENAI_API_KEY` 실제 값을 채운다(git에 커밋하지 않음).
 2. `cd infra/docker && docker compose up --build -d`
