@@ -11,6 +11,7 @@ public class JobAnalysisReviewRow {
     private String job;
     private String whyItMatters;
     private String keySkills;
+    private int importanceScore;
 
     public String getJob() {
         return job;
@@ -34,5 +35,13 @@ public class JobAnalysisReviewRow {
 
     public void setKeySkills(String keySkills) {
         this.keySkills = keySkills;
+    }
+
+    public int getImportanceScore() {
+        return importanceScore;
+    }
+
+    public void setImportanceScore(int importanceScore) {
+        this.importanceScore = importanceScore;
     }
 }

@@ -50,7 +50,8 @@ public class SummaryReviewController {
                         row.getSummary(),
                         row.getImportanceScore(),
                         row.getJobAnalyses().stream()
-                                .map(j -> new JobAnalysisResult(j.getJob(), j.getWhyItMatters(), j.getKeySkills()))
+                                .map(j -> new JobAnalysisResult(j.getJob(), j.getWhyItMatters(), j.getKeySkills(),
+                                        j.getImportanceScore()))
                                 .toList()))
                 .toList();
     }

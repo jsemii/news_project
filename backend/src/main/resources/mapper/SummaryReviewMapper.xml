@@ -23,6 +23,7 @@
             <result column="job" property="job"/>
             <result column="why_it_matters" property="whyItMatters"/>
             <result column="key_skills" property="keySkills"/>
+            <result column="job_importance_score" property="importanceScore"/>
         </collection>
     </resultMap>
 
@@ -32,11 +33,13 @@
         LEFT JOIN으로 뻥튀기된 행(뉴스 1건당 최대 3행) 개수만큼 세어버려서 실제로는
         16~17건의 뉴스만 나오는 문제가 생기므로, 반드시 "50건을 먼저 고정한 뒤에" join해야
         합니다. LEFT JOIN을 쓴 이유는 혹시 직무별 재해석이 없는 뉴스(이론상 없어야 하지만
-        방어적으로)가 있어도 공통 요약 자체는 계속 보이게 하기 위함입니다.
+        방어적으로)가 있어도 공통 요약 자체는 계속 보이게 하기 위함입니다. ja.importance_score를
+        job_importance_score로 별칭 붙인 이유는 recent.importance_score(공통 점수)와
+        컬럼명이 겹쳐서 resultMap이 어느 쪽인지 구분 못 하는 걸 막기 위함입니다.
     -->
     <select id="selectRecentSummaries" resultMap="summaryReviewRowMap">
         SELECT recent.id AS news_id, recent.title, recent.url, recent.summary, recent.importance_score,
-               ja.job, ja.why_it_matters, ja.key_skills
+               ja.job, ja.why_it_matters, ja.key_skills, ja.importance_score AS job_importance_score
         FROM (
             SELECT n.id, n.title, n.url, n.collected_at, na.summary, na.importance_score
             FROM news n
