@@ -252,7 +252,7 @@ public class OpenAiClient {
         StringBuilder jobKeysExample = new StringBuilder();
         for (String job : taxonomyProperties.getJobs()) {
             jobKeysExample.append("    \"").append(job)
-                    .append("\": {\"why_it_matters\": \"...\", \"key_skills\": \"...\"},\n");
+                    .append("\": {\"importance_score\": 0, \"why_it_matters\": \"...\", \"key_skills\": \"...\"},\n");
         }
 
         return """
@@ -266,13 +266,50 @@ public class OpenAiClient {
                 }
 
                 직무 목록(반드시 아래 %d개 키를 jobs 안에 전부 포함해야 함): %s
-                각 직무의 why_it_matters는 "이 요약이 그 직무 취준생에게 왜 중요한지"를 2~3문장으로,
-                key_skills는 관련해 도움이 될 역량/기술 키워드를 콤마로 구분해서 작성하세요.
-                직접적인 관련이 적어 보여도 그 직무 관점에서 최대한 의미를 찾아 작성하세요(빈 값으로 두지 마세요).
+
+                [작성 순서 — 반드시 이 순서를 지킬 것] 각 직무마다, importance_score를 먼저 아래
+                기준으로 엄격하게 정한 다음에 why_it_matters/key_skills를 쓰세요. "무슨 텍스트를
+                쓸지"를 먼저 고민하고 나서 점수를 끼워 맞추면 안 됩니다 — 순서가 바뀌면 "텍스트를
+                그럴듯하게 채웠으니 점수도 높여야 할 것 같다"는 착각이 생기기 쉽습니다.
+
+                importance_score(1~10) 기준 — 오직 이것만 사용하세요. 뉴스 자체의 사회적 파장·화제성·
+                인명 피해 규모·충격도는 절대 점수에 반영하지 마세요. 오직 "이 뉴스가 [그 직무]의
+                업무/채용과 얼마나 직접적으로 연관되는가"만 봅니다.
+                - 1~2점: [그 직무]의 업무나 채용과 명확한 연결고리가 없는 뉴스. 사건·사고, 재해, 질병·
+                건강, 연예, 스포츠, 날씨, 부고/인사, 정치 지지율/여론조사 등은 아무리 사회적으로
+                중요하거나 화제가 되어도 무조건 이 구간입니다. 억지로 기술적 연결고리를 찾아내려 하지
+                마세요(예: "질병 기사니까 의료 데이터를 다루는 데이터분석과 관련 있다"처럼 견강부회하지
+                말 것 — 뉴스 자체가 기술/채용/산업 이야기가 아니면 관련 없는 것입니다).
+                - 3점: 넓은 IT 생태계와는 스치듯 관련 있지만 [그 직무]의 업무와 직접 연결되지 않는 뉴스.
+                - 4~6점: [그 직무]와 간접적으로 연결되는 뉴스(예: 관련 산업/기술 트렌드를 보여주지만
+                이 직무의 실무와 바로 이어지지는 않는 정도).
+                - 7~10점: [그 직무]의 구체적인 채용 동향, 필요 기술 스택, 직무 역량 요구사항과 직접
+                연결되는 뉴스(예: 이 직무 채용 확대, 이 직무가 쓰는 기술의 도입/전환, 관련 프로젝트 발주 등).
+
+                [중요 원칙] 이 점수는 %d개 직무 중 "상대적으로 어느 직무가 제일 관련 있는지"를 비교해서
+                매기는 게 아닙니다. 각 직무의 importance_score는 오직 그 직무 자체의 업무·채용 관련성만
+                독립적으로 판단해서 매기세요. 예를 들어 세 직무 모두 이 뉴스와 관련이 약하다면, 그중
+                제일 나아 보이는 직무에 억지로 높은 점수를 주지 말고 셋 다 낮게 매기세요. 반대로 여러
+                직무가 실제로 다 강하게 관련 있다면 여러 직무에 다 높은 점수를 줘도 됩니다.
+
+                importance_score를 다 정한 뒤에 why_it_matters/key_skills를 쓰세요. why_it_matters는
+                "이 요약이 그 직무 취준생에게 왜 중요한지"를 2~3문장으로, key_skills는 관련해 도움이
+                될 역량/기술 키워드를 콤마로 구분해서 작성하세요. 이미 정한 점수가 낮다면(1~3점) 그에
+                맞게 "관련성이 낮다/약하다"는 취지로 짧게 쓰고, 없는 관련성을 억지로 지어내 장황하게
+                쓰지 마세요 — 반대로 점수가 높다면 그 근거를 구체적으로 쓰세요. 빈 값으로 두지는
+                마세요.
+
+                자체 점검: 답변을 작성한 뒤, 각 직무의 importance_score에 대해 다음을 스스로 확인하세요.
+                (1) 이 점수가 뉴스의 사회적 중요도가 아니라 그 직무 자체의 업무/채용 관련성만 기준으로
+                매겨졌는가? (2) 다른 직무와 비교한 상대평가가 아니라 그 직무 하나만 놓고 독립적으로
+                판단했는가? (3) why_it_matters의 서술 분량이나 그럴듯함 때문에 점수를 관대하게 주지
+                않았는가 — 실제 연관성이 약하면 1~2점인가? 하나라도 어긋난다면 최종 답변을 보내기 전에
+                점수부터 다시 수정하세요.
 
                 중요: 입력으로 받은 요약 문장을 그대로 옮겨 적지 마세요. 그 안의 사실관계를 바탕으로
                 각 직무 관점에서 완전히 새로운 문장으로 재해석해서 작성하세요.
-                """.formatted(jobKeysExample, taxonomyProperties.getJobs().size(), jobList);
+                """.formatted(jobKeysExample, taxonomyProperties.getJobs().size(), jobList,
+                taxonomyProperties.getJobs().size());
     }
 
     // [무엇을 받아서] 입력값 없음.
@@ -357,7 +394,8 @@ public class OpenAiClient {
             }
             String whyItMatters = jobNode.path("why_it_matters").asString();
             String keySkills = jobNode.path("key_skills").asString();
-            result.add(new JobAnalysisResult(job, whyItMatters, keySkills));
+            int jobImportanceScore = clampImportanceScore(jobNode.path("importance_score").asInt());
+            result.add(new JobAnalysisResult(job, whyItMatters, keySkills, jobImportanceScore));
         }
         return result;
     }

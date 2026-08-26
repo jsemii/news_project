@@ -20,19 +20,22 @@ public class NewsJobAnalysis {
     private String whyItMatters;
     // 이 뉴스와 관련해서 이 직무 종사자에게 도움이 될 만한 역량/기술 키워드입니다.
     private String keySkills;
+    // 이 뉴스가 "이 직무 하나"에 얼마나 중요한지(1~10, 다른 직무와의 상대평가가 아님).
+    private int importanceScore;
 
     public NewsJobAnalysis() {
     }
 
-    // [무엇을 받아서] 이 분석이 속한 뉴스 id, 직무 이름, 그리고 AI가 만든 두 가지 내용
-    //              (whyItMatters, keySkills)을 받습니다.
+    // [무엇을 받아서] 이 분석이 속한 뉴스 id, 직무 이름, AI가 만든 내용(whyItMatters,
+    //              keySkills, importanceScore)을 받습니다.
     // [왜 필요한지] NewsStructuringService가 OpenAI 응답의 jobs 목록(직무 3개)을 순회하면서
     //              직무별 NewsJobAnalysis 객체를 하나씩 만들 때 사용합니다.
-    public NewsJobAnalysis(Long newsId, String job, String whyItMatters, String keySkills) {
+    public NewsJobAnalysis(Long newsId, String job, String whyItMatters, String keySkills, int importanceScore) {
         this.newsId = newsId;
         this.job = job;
         this.whyItMatters = whyItMatters;
         this.keySkills = keySkills;
+        this.importanceScore = importanceScore;
     }
 
     public Long getId() {
@@ -73,5 +76,13 @@ public class NewsJobAnalysis {
 
     public void setKeySkills(String keySkills) {
         this.keySkills = keySkills;
+    }
+
+    public int getImportanceScore() {
+        return importanceScore;
+    }
+
+    public void setImportanceScore(int importanceScore) {
+        this.importanceScore = importanceScore;
     }
 }

@@ -64,10 +64,10 @@
     </insert>
 
     <insert id="insertJobAnalyses" parameterType="list">
-        INSERT INTO news_job_analysis (news_id, job, why_it_matters, key_skills)
+        INSERT INTO news_job_analysis (news_id, job, why_it_matters, key_skills, importance_score)
         VALUES
         <foreach collection="list" item="item" separator=",">
-            (#{item.newsId}, #{item.job}, #{item.whyItMatters}, #{item.keySkills})
+            (#{item.newsId}, #{item.job}, #{item.whyItMatters}, #{item.keySkills}, #{item.importanceScore})
         </foreach>
     </insert>
 
