@@ -60,40 +60,104 @@
         <result column="job" property="job"/>
         <result column="why_it_matters" property="whyItMatters"/>
         <result column="key_skills" property="keySkills"/>
+        <result column="job_importance_score" property="jobImportanceScore"/>
+        <result column="is_job_highlighted" property="jobHighlighted"/>
     </resultMap>
 
     <!--
-        selectTopBriefings와 거의 같지만, news_job_analysis를 news_id + job(파라미터)
-        조건으로 INNER JOIN해서 그 직무 관점의 재해석(why_it_matters, key_skills)도
-        함께 가져옵니다. INNER JOIN을 쓰는 이유: NewsAnalysisSaver.save()가
-        news_analysis와 3개 직무 행을 항상 같은 트랜잭션에서 함께 저장하므로,
-        news_analysis가 있는 뉴스는 반드시 이 조인 조건에 맞는 직무 행도 존재합니다 —
-        그래서 이 쿼리로도 selectTopBriefings와 같은 뉴스 건수가 나옵니다(내용만 다름).
-        job/why_it_matters/key_skills도 GROUP BY에 넣는 이유는 이 값들이 string_agg처럼
-        집계되는 컬럼이 아니라서(뉴스+직무 조합마다 값이 하나뿐이긴 하지만) PostgreSQL이
-        SELECT에 있는 비집계 컬럼은 GROUP BY에도 명시하도록 요구하기 때문입니다.
+        직무 탭은 "이 직무에 진짜 중요한 뉴스"가 먼저 보여야 하므로, 공통 importance_score
+        하나로만 정렬하던 예전 방식 대신 2단계(tier)로 목록을 채웁니다.
+
+        1순위(tier1): 그 직무의 importance_score(news_job_analysis)가 minJobScore
+        이상인 뉴스를, 직무 점수 내림차순으로 최대 limit건.
+        2순위(tier2): 1순위에서 빠진(NOT IN) 나머지 뉴스를, 공통 importance_score
+        내림차순으로 "1순위가 못 채운 자리 수"만큼만 채웁니다.
+
+        핵심은 tier2의 LIMIT 대신 쓴 row_number() 조건 "rn <= (#{limit} - tier1_count.cnt)"
+        입니다. row_number()는 1부터 시작하므로, 1순위가 이미 limit건 이상이면
+        (#{limit} - tier1_count.cnt)가 0 이하가 되어 이 조건을 만족하는 행이 하나도
+        없습니다 — 즉 "1순위만으로 limit을 넘으면 2순위는 자동으로 0건"이라는 경계
+        조건이 별도 IF 분기 없이 SQL 자체로 처리됩니다. NOT IN 서브쿼리(1순위 news_id
+        목록)가 tier2에서 1순위와 겹치는 뉴스를 원천적으로 제외하므로 중복도 없습니다.
+
+        INNER JOIN news_job_analysis를 쓰는 이유는 selectTopBriefings와 같습니다 —
+        NewsAnalysisSaver.save()가 news_analysis와 3개 직무 행을 항상 같은 트랜잭션
+        으로 저장하므로, news_analysis가 있는 뉴스는 반드시 이 조인 조건에 맞는 직무
+        행도 존재합니다.
+
+        최종 정렬은 1순위(⭐)를 항상 먼저 보여주고, 1순위 안에서는 직무 점수순,
+        2순위 안에서는 공통 점수순으로 둡니다 — "이 직무에 진짜 중요한 뉴스가 먼저
+        보인다"는 취지에 맞춘 것입니다.
     -->
     <select id="selectTopBriefingsByJob" resultMap="jobBriefingRowMap">
-        SELECT
-            n.id AS news_id,
-            n.title AS title,
-            n.url AS url,
-            n.published_at AS published_at,
-            na.summary AS summary,
-            na.importance_score AS importance_score,
-            string_agg(DISTINCT ni.industry, ',') AS industries_csv,
-            ja.job AS job,
-            ja.why_it_matters AS why_it_matters,
-            ja.key_skills AS key_skills
-        FROM news n
-        JOIN news_analysis na ON na.news_id = n.id
-        JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
-        LEFT JOIN news_industry ni ON ni.news_id = n.id
-        WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
-        GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
-                 ja.job, ja.why_it_matters, ja.key_skills
-        ORDER BY na.importance_score DESC
-        LIMIT #{limit}
+        WITH tier1_ranked AS (
+            SELECT
+                n.id AS news_id, n.title AS title, n.url AS url, n.published_at AS published_at,
+                na.summary AS summary, na.importance_score AS importance_score,
+                string_agg(DISTINCT ni.industry, ',') AS industries_csv,
+                ja.job AS job, ja.why_it_matters AS why_it_matters, ja.key_skills AS key_skills,
+                ja.importance_score AS job_importance_score,
+                row_number() OVER (ORDER BY ja.importance_score DESC) AS rn
+            FROM news n
+            JOIN news_analysis na ON na.news_id = n.id
+            JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
+            LEFT JOIN news_industry ni ON ni.news_id = n.id
+            WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
+              AND ja.importance_score >= #{minJobScore}
+            GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
+                     ja.job, ja.why_it_matters, ja.key_skills, ja.importance_score
+        ),
+        tier1 AS (
+            SELECT news_id, title, url, published_at, summary, importance_score,
+                   industries_csv, job, why_it_matters, key_skills, job_importance_score
+            FROM tier1_ranked
+            WHERE rn &lt;= #{limit}
+        ),
+        tier1_count AS (
+            SELECT count(*) AS cnt FROM tier1
+        ),
+        tier2_ranked AS (
+            SELECT
+                n.id AS news_id, n.title AS title, n.url AS url, n.published_at AS published_at,
+                na.summary AS summary, na.importance_score AS importance_score,
+                string_agg(DISTINCT ni.industry, ',') AS industries_csv,
+                ja.job AS job, ja.why_it_matters AS why_it_matters, ja.key_skills AS key_skills,
+                ja.importance_score AS job_importance_score,
+                row_number() OVER (ORDER BY na.importance_score DESC) AS rn
+            FROM news n
+            JOIN news_analysis na ON na.news_id = n.id
+            JOIN news_job_analysis ja ON ja.news_id = n.id AND ja.job = #{job}
+            LEFT JOIN news_industry ni ON ni.news_id = n.id
+            WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
+              AND n.id NOT IN (SELECT news_id FROM tier1)
+            GROUP BY n.id, n.title, n.url, n.published_at, na.summary, na.importance_score,
+                     ja.job, ja.why_it_matters, ja.key_skills, ja.importance_score
+        ),
+        tier2 AS (
+            SELECT t.news_id, t.title, t.url, t.published_at, t.summary, t.importance_score,
+                   t.industries_csv, t.job, t.why_it_matters, t.key_skills, t.job_importance_score
+            FROM tier2_ranked t, tier1_count
+            WHERE t.rn &lt;= (#{limit} - tier1_count.cnt)
+        ),
+        combined AS (
+            SELECT news_id, title, url, published_at, summary, importance_score, industries_csv,
+                   job, why_it_matters, key_skills, job_importance_score, true AS is_job_highlighted
+            FROM tier1
+            UNION ALL
+            SELECT news_id, title, url, published_at, summary, importance_score, industries_csv,
+                   job, why_it_matters, key_skills, job_importance_score, false AS is_job_highlighted
+            FROM tier2
+        )
+        <!--
+            PostgreSQL은 UNION/UNION ALL 바로 뒤의 ORDER BY에는 결과 컬럼명만 쓸 수
+            있고 CASE 같은 표현식은 못 씁니다("invalid UNION ORDER BY clause" 에러 —
+            실제로 겪음). 그래서 UNION ALL 결과를 combined CTE로 한 번 감싼 뒤, 그
+            바깥에서 일반 SELECT로 정렬합니다(에러 메시지의 힌트: "move the UNION
+            into a FROM clause"를 그대로 따른 것).
+        -->
+        SELECT * FROM combined
+        ORDER BY is_job_highlighted DESC,
+                 CASE WHEN is_job_highlighted THEN job_importance_score ELSE importance_score END DESC
     </select>
 
     <!--

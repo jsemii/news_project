@@ -25,13 +25,17 @@ public interface BriefingMapper {
     List<BriefingRow> selectTopBriefings(@Param("date") LocalDate date, @Param("limit") int limit);
 
     // [무엇을 받아서] 어느 직무(job: "IT전산"/"데이터분석"/"백엔드" 중 하나) 관점으로
-    //              볼지, 어느 날짜에 분석된 것을 볼지(date), 몇 건까지 가져올지(limit)를 받습니다.
-    // [무엇을 하고] selectTopBriefings와 같은 조건(그 날짜에 분석된 것, importance_score
-    //              내림차순)에 news_job_analysis를 job으로 추가 조인해서, 각 행에
-    //              그 직무 관점의 재해석(job/whyItMatters/keySkills)까지 채워 옵니다.
-    // [무엇을 돌려주는지] job/whyItMatters/keySkills가 채워진 BriefingRow 목록.
+    //              볼지, 어느 날짜에 분석된 것을 볼지(date), 몇 건까지 가져올지(limit),
+    //              1순위로 우선 채울 직무 점수 기준(minJobScore)을 받습니다.
+    // [무엇을 하고] 1순위(그 직무 importance_score >= minJobScore, 직무 점수 내림차순)를
+    //              먼저 채우고, 남은 자리를 2순위(1순위에서 빠진 뉴스 중 공통
+    //              importance_score 내림차순)로 채웁니다. 1순위만으로 limit을 채우거나
+    //              넘으면 2순위는 실행되지 않습니다(SQL 안에서 자연스럽게 0건이 됨 —
+    //              BriefingMapper.xml 주석 참고).
+    // [무엇을 돌려주는지] job/whyItMatters/keySkills/jobImportanceScore/jobHighlighted가
+    //              채워진 BriefingRow 목록.
     List<BriefingRow> selectTopBriefingsByJob(@Param("job") String job, @Param("date") LocalDate date,
-                                               @Param("limit") int limit);
+                                               @Param("limit") int limit, @Param("minJobScore") int minJobScore);
 
     // [무엇을 받아서] 조회할 날짜를 받습니다.
     // [무엇을 하고] daily_highlight에서 그 날짜의 "오늘 한 줄 요약" 행을 찾습니다(ai

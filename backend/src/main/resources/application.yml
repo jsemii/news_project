@@ -95,6 +95,7 @@ ai:
 
 briefing:
   top-n: 10 # 조회 시 하루 상위 몇 건까지 보여줄지
+  job-highlight-min-score: 8 # 직무 탭에서 이 점수 이상인 직무별 중요도는 1순위(⭐)로 우선 채움
 
 daily-highlight:
   min-news-count: 3 # 재료 건수(briefing.top-n 이내)가 이보다 적으면 LLM을 호출하지 않음(억지 연결 방지)

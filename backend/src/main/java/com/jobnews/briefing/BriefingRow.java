@@ -20,11 +20,16 @@ public class BriefingRow {
     private int importanceScore;
     // 산업 태그들을 "금융,제조"처럼 콤마로 이어붙인 문자열. 태그가 하나도 없으면 null입니다.
     private String industriesCsv;
-    // 아래 3개는 selectTopBriefingsByJob(직무별 조회)에서만 채워집니다. 일반 모드
-    // 조회(selectTopBriefings)는 이 컬럼들을 아예 select하지 않으므로 항상 null입니다.
+    // 아래는 selectTopBriefingsByJob(직무별 조회)에서만 채워집니다. 일반 모드
+    // 조회(selectTopBriefings)는 이 컬럼들을 아예 select하지 않으므로 항상 null/기본값입니다.
     private String job;
     private String whyItMatters;
     private String keySkills;
+    // 이 직무 관점의 중요도 점수(news_job_analysis.importance_score).
+    private int jobImportanceScore;
+    // 1순위(그 직무 importance_score가 briefing.job-highlight-min-score 이상)로
+    // 뽑힌 뉴스면 true, 2순위(공통 점수로 나머지 채움)면 false.
+    private boolean jobHighlighted;
 
     public String getJob() {
         return job;
@@ -104,5 +109,21 @@ public class BriefingRow {
 
     public void setIndustriesCsv(String industriesCsv) {
         this.industriesCsv = industriesCsv;
+    }
+
+    public int getJobImportanceScore() {
+        return jobImportanceScore;
+    }
+
+    public void setJobImportanceScore(int jobImportanceScore) {
+        this.jobImportanceScore = jobImportanceScore;
+    }
+
+    public boolean isJobHighlighted() {
+        return jobHighlighted;
+    }
+
+    public void setJobHighlighted(boolean jobHighlighted) {
+        this.jobHighlighted = jobHighlighted;
     }
 }
