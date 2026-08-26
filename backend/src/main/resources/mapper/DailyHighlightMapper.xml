@@ -6,19 +6,18 @@
 <mapper namespace="com.jobnews.ai.DailyHighlightMapper">
 
     <!--
-        BriefingMapper.selectTopBriefings와 같은 날짜 기준(COALESCE(published_at,
-        collected_at)::date)을 씁니다 — "오늘의 브리핑"과 "오늘 한 줄 요약"이 서로 다른
-        뉴스 집합을 보는 모순을 막기 위함입니다. importance_score 내림차순으로 정렬하는
-        이유는 특별히 순서가 중요해서가 아니라, 프롬프트에 넣을 때 중요한 뉴스가 먼저
-        보이는 편이 자연스럽기 때문입니다.
+        BriefingMapper.selectTopBriefings와 WHERE/ORDER/LIMIT을 완전히 동일하게 맞춥니다
+        (SELECT만 summary 하나로 축소) — "오늘의 브리핑" 화면에 실제로 보이는 뉴스와
+        "오늘 한 줄 요약"의 재료가 항상 정확히 같은 집합이어야 하기 때문입니다. limit은
+        briefing.top-n(BriefingProperties)을 그대로 받아씁니다.
     -->
     <select id="selectSummariesForHighlight" resultType="string">
         SELECT na.summary
         FROM news n
         JOIN news_analysis na ON na.news_id = n.id
         WHERE COALESCE(n.published_at, n.collected_at)::date = #{date}
-        AND na.importance_score >= #{minScore}
         ORDER BY na.importance_score DESC
+        LIMIT #{limit}
     </select>
 
     <insert id="upsertHighlight" parameterType="com.jobnews.ai.DailyHighlight">

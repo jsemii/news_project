@@ -8,21 +8,24 @@ import java.util.List;
 
 /**
  * [전체 흐름에서의 위치] "오늘 한 줄 요약" 기능에서 DB와 대화하는 창구입니다(쓰는 쪽).
- * NewsAnalysisMapper와 같은 ai 패키지에 두는 이유는, "언제 다시 계산할지"를 AI 구조화
- * 파이프라인(NewsStructuringService)이 결정하기 때문입니다. 조회해서 화면에 보여주는
+ * NewsAnalysisMapper와 같은 ai 패키지에 두는 이유는, "언제 다시 계산할지"를 독립
+ * 스케줄러(DailyHighlightScheduler)가 결정하기 때문입니다. 조회해서 화면에 보여주는
  * 쪽은 briefing 패키지의 BriefingMapper가 별도로 담당합니다(news_analysis를 ai가
  * 쓰고 briefing이 읽는 것과 같은 구조).
  */
 @Mapper
 public interface DailyHighlightMapper {
 
-    // [무엇을 받아서] 재료로 쓸 날짜(date)와 기준 점수(minScore)를 받습니다.
-    // [무엇을 하고] "오늘의 브리핑"과 같은 날짜 기준(COALESCE(published_at, collected_at))으로
-    //              그 날짜에 해당하고 importance_score가 기준 이상인 뉴스의 일반 요약만
-    //              중요도 내림차순으로 가져옵니다.
-    // [무엇을 돌려주는지] 요약 문자열 목록(뉴스 개수만큼). DailyHighlightService가 이
+    // [무엇을 받아서] 재료로 쓸 날짜(date)와 최대 건수(limit)를 받습니다.
+    // [무엇을 하고] BriefingMapper.selectTopBriefings와 완전히 같은 모집단 정의(같은
+    //              날짜 기준 COALESCE(published_at, collected_at) + importance_score
+    //              내림차순 + limit)로 뉴스의 일반 요약만 가져옵니다 — "오늘의 브리핑"
+    //              화면에 실제로 보이는 뉴스와 항상 정확히 같은 집합을 재료로 쓰기
+    //              위함입니다(예전엔 점수 임계값만 썼는데, 화면에 안 보이는 뉴스가
+    //              요약 재료에 섞이거나 반대로 빠지는 불일치가 있었습니다).
+    // [무엇을 돌려주는지] 요약 문자열 목록(최대 limit개). DailyHighlightService가 이
     //              목록의 크기로 LLM을 호출할지 말지 판단합니다.
-    List<String> selectSummariesForHighlight(@Param("date") LocalDate date, @Param("minScore") int minScore);
+    List<String> selectSummariesForHighlight(@Param("date") LocalDate date, @Param("limit") int limit);
 
     // [무엇을 받아서] 저장할 요약 결과(DailyHighlight) 하나를 받습니다.
     // [무엇을 하고] daily_highlight에 그 날짜 행이 없으면 새로 추가하고, 이미 있으면
