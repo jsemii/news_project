@@ -87,7 +87,8 @@ public class BriefingController {
                     "지원하지 않는 직무입니다. 사용 가능한 값: " + aiTaxonomyProperties.getJobs());
         }
 
-        List<BriefingRow> rows = briefingMapper.selectTopBriefingsByJob(job, targetDate, briefingProperties.getTopN());
+        List<BriefingRow> rows = briefingMapper.selectTopBriefingsByJob(
+                job, targetDate, briefingProperties.getTopN(), briefingProperties.getJobHighlightMinScore());
         return rows.stream().map(row -> toItem(row, true)).toList();
     }
 
@@ -144,8 +145,10 @@ public class BriefingController {
                 : Arrays.asList(row.getIndustriesCsv().split(","));
 
         JobAnalysisResult jobInsight = jobMode
-                ? new JobAnalysisResult(row.getJob(), row.getWhyItMatters(), row.getKeySkills())
+                ? new JobAnalysisResult(row.getJob(), row.getWhyItMatters(), row.getKeySkills(),
+                        row.getJobImportanceScore())
                 : null;
+        Boolean isJobHighlighted = jobMode ? row.isJobHighlighted() : null;
 
         return new BriefingItem(
                 row.getNewsId(),
@@ -155,7 +158,8 @@ public class BriefingController {
                 row.getSummary(),
                 row.getImportanceScore(),
                 industries,
-                jobInsight
+                jobInsight,
+                isJobHighlighted
         );
     }
 }

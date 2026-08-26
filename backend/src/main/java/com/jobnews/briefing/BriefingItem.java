@@ -25,10 +25,18 @@ public class BriefingItem {
     private final int importanceScore;
     private final List<String> industries;
     private final JobAnalysisResult jobInsight;
+    // 직무 탭에서만 채워지는 플래그입니다(일반 모드는 null). true면 그 직무의
+    // importance_score가 briefing.job-highlight-min-score 이상이라 1순위로 뽑힌
+    // 뉴스라는 뜻 — 프론트에서 ⭐ 표시에 씁니다. getter 이름을 관례적인 isJobHighlighted()가
+    // 아니라 getIsJobHighlighted()로 지은 이유: boolean getter의 "is" 접두사는 Jackson이
+    // JSON 프로퍼티명에서 자동으로 벗겨내는 관례가 있어서(isJobHighlighted() → JSON 키
+    // "jobHighlighted"), 응답 JSON 키를 정확히 "isJobHighlighted"로 만들려면 getter
+    // 이름 자체에 "get"을 붙여야 합니다.
+    private final Boolean isJobHighlighted;
 
     public BriefingItem(Long newsId, String title, String url, LocalDateTime publishedAt,
                          String summary, int importanceScore, List<String> industries,
-                         JobAnalysisResult jobInsight) {
+                         JobAnalysisResult jobInsight, Boolean isJobHighlighted) {
         this.newsId = newsId;
         this.title = title;
         this.url = url;
@@ -37,6 +45,7 @@ public class BriefingItem {
         this.importanceScore = importanceScore;
         this.industries = industries;
         this.jobInsight = jobInsight;
+        this.isJobHighlighted = isJobHighlighted;
     }
 
     public Long getNewsId() {
@@ -69,5 +78,9 @@ public class BriefingItem {
 
     public JobAnalysisResult getJobInsight() {
         return jobInsight;
+    }
+
+    public Boolean getIsJobHighlighted() {
+        return isJobHighlighted;
     }
 }

@@ -60,9 +60,9 @@ class NewsStructuringServiceTest {
 
     private List<JobAnalysisResult> sampleJobs() {
         return List.of(
-                new JobAnalysisResult("IT전산", "이유1", "스킬1"),
-                new JobAnalysisResult("데이터분석", "이유2", "스킬2"),
-                new JobAnalysisResult("백엔드", "이유3", "스킬3")
+                new JobAnalysisResult("IT전산", "이유1", "스킬1", 7),
+                new JobAnalysisResult("데이터분석", "이유2", "스킬2", 5),
+                new JobAnalysisResult("백엔드", "이유3", "스킬3", 6)
         );
     }
 

@@ -92,6 +92,10 @@
   margin-bottom: 8px;
 }
 
+.briefing-card__job-star {
+  margin-right: 4px;
+}
+
 .briefing-card__title:hover {
   color: var(--accent);
   text-decoration: underline;

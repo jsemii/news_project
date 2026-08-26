@@ -68,7 +68,8 @@ public class NewsAnalysisSaver {
         }
 
         List<NewsJobAnalysis> jobAnalyses = jobs.stream()
-                .map(job -> new NewsJobAnalysis(newsId, job.getJob(), job.getWhyItMatters(), job.getKeySkills()))
+                .map(job -> new NewsJobAnalysis(newsId, job.getJob(), job.getWhyItMatters(), job.getKeySkills(),
+                        job.getImportanceScore()))
                 .toList();
         newsAnalysisMapper.insertJobAnalyses(jobAnalyses);
     }
