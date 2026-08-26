@@ -68,9 +68,34 @@ services:
     container_name: news-briefing-nginx
     ports:
       - "80:80"
+      - "443:443"
+    # certbot-etc: Let's Encrypt 인증서 파일(/etc/letsencrypt) 공유. certbot-www:
+    # 도메인 소유권 확인(HTTP-01 challenge) 파일을 nginx가 그대로 서빙해야 해서 공유.
+    # nginx는 둘 다 읽기만 하면 되므로 :ro(read-only)로 마운트합니다 — 쓰기는 certbot
+    # 컨테이너만 합니다.
+    volumes:
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
     depends_on:
       backend:
         condition: service_healthy
 
+  # certbot: Let's Encrypt 인증서를 발급/갱신하는 전용 컨테이너입니다. nginx처럼 상시
+  # 떠있는 서비스가 아니라 "docker compose --profile certbot run --rm certbot ..."로
+  # 필요할 때만 실행하고 바로 끝나는 1회성 명령입니다. profiles로 기본 프로필에서
+  # 뺀 이유: profiles가 없으면 매 배포(`docker compose up --build -d`)마다 이 컨테이너도
+  # 같이 띄우려다가 즉시 종료돼(certbot은 인자 없이 실행하면 도움말만 찍고 끝남)
+  # `docker compose ps`에 "Exited"로 나타나서, infra/scripts/deploy.sh의 실패 감지
+  # (unhealthy|exit 문자열 검사)가 정상 배포를 실패로 잘못 판단하게 됩니다.
+  certbot:
+    image: certbot/certbot
+    container_name: news-briefing-certbot
+    profiles: ["certbot"]
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+
 volumes:
   news-briefing-db-data:
+  certbot-etc:
+  certbot-www:
