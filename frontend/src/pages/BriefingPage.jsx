@@ -131,6 +131,11 @@ function BriefingCard({ item }) {
       </div>
 
       <a className="briefing-card__title" href={item.url}>
+        {item.isJobHighlighted && (
+          <span className="briefing-card__job-star" title="이 직무와 강하게 관련된 뉴스">
+            ⭐
+          </span>
+        )}
         {item.title}
       </a>
 
