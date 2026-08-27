@@ -901,3 +901,38 @@ nginx 라우팅 자체를 검증해야 하는 상황이 생기면, (1) 로컬 �
 인증서를 만들어 별도 override 설정으로 대체하거나, (2) 아예 HTTP(80)만 쓰는
 로컬 전용 nginx 설정을 만드는 방법을 먼저 검토해야 한다 — 지금 구조로는 둘 중
 하나 없이는 로컬에서 nginx가 뜨지 않는다.
+
+## 32. AntPathRequestMatcher가 이 프로젝트의 Spring Security 버전에 없음
+#### 현상
+관리자 통계 API(`/api/stats/**`)를 ADMIN 전용으로 막으면서, 로그인 안 한 요청이
+GitHub 로그인 화면으로 리다이렉트(302)되지 않고 403을 받게 하려고
+`SecurityConfig`에 `new AntPathRequestMatcher("/api/**")`를 썼다. 컴파일하자마자
+바로 실패했다.
+```
+error: cannot find symbol
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+                                                    ^
+  symbol:   class AntPathRequestMatcher
+  location: package org.springframework.security.web.util.matcher
+```
+
+#### 원인
+`AntPathRequestMatcher`는 Spring Security 6.x까지는 있었지만, 이 프로젝트가
+쓰는 Spring Security 7.1.0(Spring Boot 4.1.0이 끌어오는 버전, `./gradlew
+dependencies`로 실제 jar 파일명까지 확인함)에서는 완전히 제거됐다. 흔한
+`deprecated` 경고 수준이 아니라 클래스 자체가 클래스패스에 없다.
+
+#### 해결
+대체 클래스는 `org.springframework.security.web.servlet.util.matcher.
+PathPatternRequestMatcher`이고(패키지 경로 자체가 `util.matcher`가 아니라
+`servlet.util.matcher`로 바뀌었다는 점도 주의), 정적 팩토리 메서드
+`PathPatternRequestMatcher.pathPattern("/api/**")`로 인스턴스를 만든다(javap로
+공개 API를 직접 확인함). `AntPathRequestMatcher` 임포트/사용을 이걸로 교체하니
+정상 컴파일됐다.
+
+앞으로 참고할 점: 이 프로젝트는 Spring Boot 4.1.0처럼 아직 널리 쓰이지 않는
+최신 버전을 쓰고 있어서, 인터넷에서 흔히 보이는 예제 코드(특히
+`AntPathRequestMatcher`, `WebSecurityConfigurerAdapter` 같은 구 API)가 그대로
+안 먹히는 경우가 많다. Spring Security 관련 클래스를 새로 쓸 때는 실제
+`./gradlew compileJava`로 확인하거나, 확실치 않으면 gradle 캐시의 jar을
+`javap`로 직접 열어서 공개 API를 확인하는 편이 빠르다.
