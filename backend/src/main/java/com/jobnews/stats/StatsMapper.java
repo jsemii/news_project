@@ -26,8 +26,12 @@ public interface StatsMapper {
     List<DailyCollectionStatItem> selectDailyCollectionCounts();
 
     // [무엇을 받아서] 파라미터 없음.
-    // [무엇을 하고] news_job_analysis를 job별로 묶어 importance_score의 평균을 냅니다.
-    // [무엇을 돌려주는지] 직무별 평균 점수 목록(평균 점수 내림차순).
+    // [무엇을 하고] news_job_analysis를 job별로 묶어 importance_score의 평균을
+    //              냅니다. importance_score = 0(V3 마이그레이션 이전 레거시
+    //              기본값, 실제 분석 점수가 아님)인 행은 평균 계산에서 제외합니다
+    //              (JobScoreStatItem 클래스 주석 참고).
+    // [무엇을 돌려주는지] 직무별 평균 점수 목록(평균 점수 내림차순), 각 항목에는
+    //              그 평균이 몇 건을 근거로 했는지(sampleCount)도 포함됩니다.
     List<JobScoreStatItem> selectJobAverageScores();
 
     // [무엇을 받아서] 파라미터 없음.

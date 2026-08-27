@@ -61,15 +61,29 @@
         <constructor>
             <idArg column="job" javaType="java.lang.String"/>
             <arg column="avg_score" javaType="java.lang.Double"/>
+            <arg column="sample_count" javaType="java.lang.Long"/>
         </constructor>
     </resultMap>
 
-    <!-- AVG(...)는 Postgres에서 기본적으로 numeric(정밀 소수) 타입을 돌려주는데,
-         ::double precision으로 명시적으로 캐스팅해서 자바 Double로 안전하게
-         매핑되게 합니다(암묵적인 numeric→Double 매핑에 기대지 않음). -->
+    <!--
+        importance_score = 0은 V3 마이그레이션에서 DEFAULT 0으로 채워진 "그 컬럼이
+        생기기 전에 이미 분석 끝난 뉴스"의 레거시 값이지, 실제로 AI가 매긴 점수가
+        아닙니다(실제 점수 척도는 1~10). 이 뉴스들은 재분석되지 않는 한(현재
+        재분석 로직 자체가 없음) 이 0이 영원히 남으므로, 그대로 평균에 포함시키면
+        "1~10점 척도인데 평균이 1도 안 되는" 왜곡된 숫자가 나옵니다(실측: 직무당
+        816건 중 583건이 0). WHERE importance_score > 0으로 실제 분석된 행만
+        평균 내고, 몇 건을 근거로 했는지 sample_count로 함께 내려줍니다.
+
+        AVG(...)는 Postgres에서 기본적으로 numeric(정밀 소수) 타입을 돌려주는데,
+        ::double precision으로 명시적으로 캐스팅해서 자바 Double로 안전하게
+        매핑되게 합니다(암묵적인 numeric→Double 매핑에 기대지 않음).
+    -->
     <select id="selectJobAverageScores" resultMap="jobScoreStatMap">
-        SELECT ja.job AS job, AVG(ja.importance_score)::double precision AS avg_score
+        SELECT ja.job AS job,
+               AVG(ja.importance_score)::double precision AS avg_score,
+               count(*) AS sample_count
         FROM news_job_analysis ja
+        WHERE ja.importance_score > 0
         GROUP BY ja.job
         ORDER BY avg_score DESC
     </select>

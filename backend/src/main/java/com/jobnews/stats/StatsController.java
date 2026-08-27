@@ -59,7 +59,9 @@ public class StatsController {
     @GetMapping("/job-scores")
     @Operation(
             summary = "직무별 평균 중요도 점수",
-            description = "news_job_analysis.importance_score의 직무별 평균을 평균 점수 내림차순으로 반환합니다."
+            description = "news_job_analysis.importance_score가 0보다 큰(실제로 분석된) 행만으로 계산한 직무별 평균을 "
+                    + "평균 점수 내림차순으로 반환합니다. 0은 V3 마이그레이션 이전 레거시 기본값이라 평균에서 제외합니다 "
+                    + "(sampleCount로 그 평균이 몇 건을 근거로 했는지 함께 내려줍니다)."
     )
     public List<JobScoreStatItem> jobScores() {
         return statsMapper.selectJobAverageScores();
