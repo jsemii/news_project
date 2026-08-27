@@ -16,6 +16,15 @@
   font-weight: 600;
 }
 
+.auth-status__admin-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.auth-status__admin-link:hover {
+  text-decoration: underline;
+}
+
 .auth-status__login,
 .auth-status__logout {
   border: 1px solid var(--border);

@@ -901,3 +901,69 @@ nginx 라우팅 자체를 검증해야 하는 상황이 생기면, (1) 로컬 �
 인증서를 만들어 별도 override 설정으로 대체하거나, (2) 아예 HTTP(80)만 쓰는
 로컬 전용 nginx 설정을 만드는 방법을 먼저 검토해야 한다 — 지금 구조로는 둘 중
 하나 없이는 로컬에서 nginx가 뜨지 않는다.
+
+## 32. AntPathRequestMatcher가 이 프로젝트의 Spring Security 버전에 없음
+#### 현상
+관리자 통계 API(`/api/stats/**`)를 ADMIN 전용으로 막으면서, 로그인 안 한 요청이
+GitHub 로그인 화면으로 리다이렉트(302)되지 않고 403을 받게 하려고
+`SecurityConfig`에 `new AntPathRequestMatcher("/api/**")`를 썼다. 컴파일하자마자
+바로 실패했다.
+```
+error: cannot find symbol
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+                                                    ^
+  symbol:   class AntPathRequestMatcher
+  location: package org.springframework.security.web.util.matcher
+```
+
+#### 원인
+`AntPathRequestMatcher`는 Spring Security 6.x까지는 있었지만, 이 프로젝트가
+쓰는 Spring Security 7.1.0(Spring Boot 4.1.0이 끌어오는 버전, `./gradlew
+dependencies`로 실제 jar 파일명까지 확인함)에서는 완전히 제거됐다. 흔한
+`deprecated` 경고 수준이 아니라 클래스 자체가 클래스패스에 없다.
+
+#### 해결
+대체 클래스는 `org.springframework.security.web.servlet.util.matcher.
+PathPatternRequestMatcher`이고(패키지 경로 자체가 `util.matcher`가 아니라
+`servlet.util.matcher`로 바뀌었다는 점도 주의), 정적 팩토리 메서드
+`PathPatternRequestMatcher.pathPattern("/api/**")`로 인스턴스를 만든다(javap로
+공개 API를 직접 확인함). `AntPathRequestMatcher` 임포트/사용을 이걸로 교체하니
+정상 컴파일됐다.
+
+앞으로 참고할 점: 이 프로젝트는 Spring Boot 4.1.0처럼 아직 널리 쓰이지 않는
+최신 버전을 쓰고 있어서, 인터넷에서 흔히 보이는 예제 코드(특히
+`AntPathRequestMatcher`, `WebSecurityConfigurerAdapter` 같은 구 API)가 그대로
+안 먹히는 경우가 많다. Spring Security 관련 클래스를 새로 쓸 때는 실제
+`./gradlew compileJava`로 확인하거나, 확실치 않으면 gradle 캐시의 jar을
+`javap`로 직접 열어서 공개 API를 확인하는 편이 빠르다.
+
+## 33. 로컬 vite dev 서버에서 GitHub/Google 로그인 버튼이 갑자기 안 먹힘
+#### 현상
+로그인 모달 기능을 구현하고 `localhost:5173`에서 GitHub/Google 로그인 버튼을
+눌렀는데 로그인이 안 됐다. 직접 curl로 확인해보니 `http://localhost:8080/
+oauth2/authorization/github`(백엔드 직접 호출)는 정상적으로 302로
+GitHub 로그인 화면으로 리다이렉트됐지만, `http://localhost:5173/oauth2/
+authorization/github`(vite 프록시 경유)는 200과 함께 SPA의 `index.html`을
+그대로 돌려줬다 — 프록시가 이 요청을 백엔드로 전달하지 않고 있었다.
+
+#### 원인
+`vite.config.js`의 프록시 설정(`/oauth2`, `/login` → `localhost:8080`) 자체는
+전혀 손대지 않았는데도 발생했다. vite dev 서버 로그를 보니
+`vite.config.js changed, restarting server...`가 찍혀 있었다 — 이 세션
+중간에 `git checkout -b feature/login-modal-and-stats`로 새 브랜치를 만들면서
+파일들의 수정 시각(mtime)이 갱신됐고, vite의 파일 감시자가 `vite.config.js`의
+내용이 실제로는 안 바뀌었는데도 "바뀐 것"으로 잘못 감지해 자동 재시작을
+했다. 이 자동 재시작 과정에서 프록시 미들웨어가 온전히 다시 등록되지 않은
+채로 서버가 떠 있었던 것으로 보인다(재현 조건까지는 확인 못함 — vite 8.x가
+비교적 최신 버전이라 이런 자동 재시작 경로에 버그가 있을 가능성).
+
+#### 해결
+`npm run dev` 프로세스를 완전히 종료하고 처음부터 새로 띄우니(자동 재시작이
+아니라 수동 재시작) 정상으로 돌아왔다 — GitHub/Google 둘 다 curl로 302
+리다이렉트 확인함.
+
+앞으로 참고할 점: 로컬 개발 중 새 git 브랜치를 만들거나 체크아웃한 직후,
+계속 떠 있던 vite dev 서버가 이유 없이 이상하게 동작한다면(특히 프록시가
+안 먹히는 것처럼 보이면) 먼저 vite 로그에 "restarting server" 같은 메시지가
+있는지 확인하고, 있다면 원인을 더 파기보다 그냥 프로세스를 완전히 죽였다
+다시 띄우는 게 빠르다.

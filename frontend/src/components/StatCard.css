@@ -1,0 +1,30 @@
+/* StatCard: BriefingPage의 .briefing-card와 같은 톤(테두리+여백만으로 구분,
+   장식 없음)을 그대로 따릅니다. */
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+}
+
+.stat-card__header {
+  margin-bottom: 14px;
+}
+
+.stat-card__title {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.stat-card__subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.stat-card__body {
+  width: 100%;
+  height: 260px;
+}

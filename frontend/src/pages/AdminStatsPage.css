@@ -1,0 +1,62 @@
+/* AdminStatsPage: BriefingPage와 같은 톤(장식 없이 여백/테두리로 구조 구분)을
+   따르되, 차트 4개를 나란히 보여줘야 해서 #root 폭을 이 페이지에서만 넓힙니다.
+   index.css의 #root { max-width: 880px }는 브리핑 화면 기준 폭이라 그대로 두고,
+   :has()로 "지금 #root 바로 아래 자식이 이 페이지일 때만" 범위를 좁혀서
+   넓힙니다(브리핑 화면은 이 선택자에 걸리지 않으므로 그쪽 폭은 그대로입니다). */
+#root:has(> .admin-stats-page) {
+  max-width: 1100px;
+}
+
+.admin-stats-page {
+  padding: 32px 20px 64px;
+  text-align: left;
+}
+
+.admin-stats-page__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.admin-stats-page__title {
+  font-size: 28px;
+  margin: 0;
+}
+
+.admin-stats-page__back {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.admin-stats-page__back:hover {
+  text-decoration: underline;
+}
+
+.admin-stats-page__status {
+  color: var(--text);
+  padding: 24px 0;
+}
+
+.admin-stats-page__status--error {
+  color: #d1453b;
+}
+
+.admin-stats-page--denied {
+  padding-top: 64px;
+  text-align: center;
+  color: var(--text);
+}
+
+.admin-stats-page__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 720px) {
+  .admin-stats-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
