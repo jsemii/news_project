@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+    [전체 흐름에서의 위치] 관리자 통계 대시보드 조회 단계의 SQL입니다. 4개 쿼리 모두
+    부등호(</<=) 비교가 필요 없는 단순 GROUP BY라서, 이 프로젝트가 전에 겪었던
+    "XML에 부등호를 그대로 썼다가 파싱 에러(docs/troubleshooting.md 28번)" 문제는
+    해당하지 않습니다(확인 차 남겨두는 메모).
+-->
+<mapper namespace="com.jobnews.stats.StatsMapper">
+
+    <resultMap id="industryStatMap" type="com.jobnews.stats.IndustryStatItem">
+        <constructor>
+            <idArg column="industry" javaType="java.lang.String"/>
+            <arg column="cnt" javaType="java.lang.Long"/>
+        </constructor>
+    </resultMap>
+
+    <!-- news_industry는 UNIQUE(news_id, industry)라 뉴스 1건이 같은 산업으로 두 번
+         집계될 일이 없으므로, 그냥 COUNT(*)로 산업별 뉴스 건수를 셉니다. -->
+    <select id="selectIndustryCounts" resultMap="industryStatMap">
+        SELECT ni.industry AS industry, count(*) AS cnt
+        FROM news_industry ni
+        GROUP BY ni.industry
+        ORDER BY cnt DESC
+    </select>
+
+    <resultMap id="dailyCollectionStatMap" type="com.jobnews.stats.DailyCollectionStatItem">
+        <constructor>
+            <idArg column="collection_date" javaType="java.time.LocalDate"/>
+            <arg column="cnt" javaType="java.lang.Long"/>
+        </constructor>
+    </resultMap>
+
+    <!--
+        generate_series로 최근 14일(오늘 포함) 날짜를 먼저 만들고 news를 LEFT JOIN
+        합니다. 단순히 "news를 collected_at 날짜로 GROUP BY"만 하면 수집이 0건인
+        날짜는 결과에 아예 안 나타나서, 프론트 라인 차트가 14개보다 적은 점을 받게
+        되고 "그래프가 끊긴 건지 원래 데이터가 없는 건지" 구분이 안 됩니다.
+        generate_series를 기준(FROM)으로 두고 news를 LEFT JOIN하면 수집 0건인
+        날짜도 행 자체는 반드시 생기므로, 항상 정확히 14개 점을 돌려줄 수 있습니다.
+
+        count(*) 대신 count(n.id)를 쓰는 이유: LEFT JOIN에서 그 날짜에 매칭되는
+        news가 하나도 없어도(n의 모든 컬럼이 NULL이어도) GROUP BY gs.day는 행을
+        1개 만들어냅니다. count(*)는 그 행 자체를 세어버려서 "0건"이어야 할 날짜가
+        "1건"으로 잘못 나옵니다. count(n.id)는 NULL을 세지 않으므로 정확히 0이
+        됩니다.
+
+        Postgres 컨테이너가 timezone=Asia/Seoul로 떠 있어서(infra/docker/
+        docker-compose.yml 참고) current_date와 collected_at::date 둘 다 이미
+        한국 시간 기준이라 별도 시간대 변환이 필요 없습니다.
+    -->
+    <select id="selectDailyCollectionCounts" resultMap="dailyCollectionStatMap">
+        SELECT gs.day::date AS collection_date, count(n.id) AS cnt
+        FROM generate_series(current_date - interval '13 days', current_date, interval '1 day') AS gs(day)
+        LEFT JOIN news n ON n.collected_at::date = gs.day
+        GROUP BY gs.day
+        ORDER BY gs.day
+    </select>
+
+    <resultMap id="jobScoreStatMap" type="com.jobnews.stats.JobScoreStatItem">
+        <constructor>
+            <idArg column="job" javaType="java.lang.String"/>
+            <arg column="avg_score" javaType="java.lang.Double"/>
+        </constructor>
+    </resultMap>
+
+    <!-- AVG(...)는 Postgres에서 기본적으로 numeric(정밀 소수) 타입을 돌려주는데,
+         ::double precision으로 명시적으로 캐스팅해서 자바 Double로 안전하게
+         매핑되게 합니다(암묵적인 numeric→Double 매핑에 기대지 않음). -->
+    <select id="selectJobAverageScores" resultMap="jobScoreStatMap">
+        SELECT ja.job AS job, AVG(ja.importance_score)::double precision AS avg_score
+        FROM news_job_analysis ja
+        GROUP BY ja.job
+        ORDER BY avg_score DESC
+    </select>
+
+    <resultMap id="filteredReasonStatMap" type="com.jobnews.stats.FilteredReasonStatItem">
+        <constructor>
+            <idArg column="reason" javaType="java.lang.String"/>
+            <arg column="cnt" javaType="java.lang.Long"/>
+        </constructor>
+    </resultMap>
+
+    <!-- reason은 FilterReason enum 값(TITLE_EXCLUDED/CONTENT_TOO_SHORT/TOO_OLD)
+         또는 그 컬럼이 생기기 전 데이터를 위한 레거시 기본값 'UNKNOWN' 중 하나이며,
+         별도 필터링 없이 있는 값 그대로 묶어서 셉니다. -->
+    <select id="selectFilteredReasonCounts" resultMap="filteredReasonStatMap">
+        SELECT nfo.reason AS reason, count(*) AS cnt
+        FROM news_filtered_out nfo
+        GROUP BY nfo.reason
+        ORDER BY cnt DESC
+    </select>
+
+</mapper>
