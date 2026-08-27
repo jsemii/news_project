@@ -936,3 +936,34 @@ PathPatternRequestMatcher`이고(패키지 경로 자체가 `util.matcher`가 �
 안 먹히는 경우가 많다. Spring Security 관련 클래스를 새로 쓸 때는 실제
 `./gradlew compileJava`로 확인하거나, 확실치 않으면 gradle 캐시의 jar을
 `javap`로 직접 열어서 공개 API를 확인하는 편이 빠르다.
+
+## 33. 로컬 vite dev 서버에서 GitHub/Google 로그인 버튼이 갑자기 안 먹힘
+#### 현상
+로그인 모달 기능을 구현하고 `localhost:5173`에서 GitHub/Google 로그인 버튼을
+눌렀는데 로그인이 안 됐다. 직접 curl로 확인해보니 `http://localhost:8080/
+oauth2/authorization/github`(백엔드 직접 호출)는 정상적으로 302로
+GitHub 로그인 화면으로 리다이렉트됐지만, `http://localhost:5173/oauth2/
+authorization/github`(vite 프록시 경유)는 200과 함께 SPA의 `index.html`을
+그대로 돌려줬다 — 프록시가 이 요청을 백엔드로 전달하지 않고 있었다.
+
+#### 원인
+`vite.config.js`의 프록시 설정(`/oauth2`, `/login` → `localhost:8080`) 자체는
+전혀 손대지 않았는데도 발생했다. vite dev 서버 로그를 보니
+`vite.config.js changed, restarting server...`가 찍혀 있었다 — 이 세션
+중간에 `git checkout -b feature/login-modal-and-stats`로 새 브랜치를 만들면서
+파일들의 수정 시각(mtime)이 갱신됐고, vite의 파일 감시자가 `vite.config.js`의
+내용이 실제로는 안 바뀌었는데도 "바뀐 것"으로 잘못 감지해 자동 재시작을
+했다. 이 자동 재시작 과정에서 프록시 미들웨어가 온전히 다시 등록되지 않은
+채로 서버가 떠 있었던 것으로 보인다(재현 조건까지는 확인 못함 — vite 8.x가
+비교적 최신 버전이라 이런 자동 재시작 경로에 버그가 있을 가능성).
+
+#### 해결
+`npm run dev` 프로세스를 완전히 종료하고 처음부터 새로 띄우니(자동 재시작이
+아니라 수동 재시작) 정상으로 돌아왔다 — GitHub/Google 둘 다 curl로 302
+리다이렉트 확인함.
+
+앞으로 참고할 점: 로컬 개발 중 새 git 브랜치를 만들거나 체크아웃한 직후,
+계속 떠 있던 vite dev 서버가 이유 없이 이상하게 동작한다면(특히 프록시가
+안 먹히는 것처럼 보이면) 먼저 vite 로그에 "restarting server" 같은 메시지가
+있는지 확인하고, 있다면 원인을 더 파기보다 그냥 프로세스를 완전히 죽였다
+다시 띄우는 게 빠르다.

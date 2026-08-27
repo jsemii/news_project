@@ -77,7 +77,7 @@ export default function AuthStatus() {
       ) : (
         <>
           <button type="button" className="auth-status__login" onClick={() => setLoginModalOpen(true)}>
-            로그인
+            로그인/회원가입
           </button>
           <LoginModal open={isLoginModalOpen} onClose={() => setLoginModalOpen(false)} />
         </>
