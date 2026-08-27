@@ -142,13 +142,13 @@ export default function AdminStatsPage() {
           </StatCard>
           <StatCard
             title="직무별 평균 중요도 점수"
-            subtitle="importance_score > 0인 뉴스만 집계(과거 미분석 데이터의 기본값 0은 제외)"
+            subtitle="실제로 점수가 매겨진 뉴스만 평균 냈어요 (점수가 없는 예전 뉴스는 제외)"
           >
             <JobScoreChart data={stats.jobScores} />
           </StatCard>
           <StatCard
             title="필터링 사유별 건수"
-            subtitle="TOO_OLD/CONTENT_TOO_SHORT/TITLE_EXCLUDED는 AI 분석 전 규칙 기반으로 걸러진 뉴스, UNKNOWN은 레거시 기본값"
+            subtitle="TOO_OLD(오래된 뉴스)·CONTENT_TOO_SHORT(본문이 짧은 뉴스)·TITLE_EXCLUDED(제목에 제외 키워드 포함)는 AI가 보기 전에 미리 걸러진 뉴스, UNKNOWN은 이 구분이 생기기 전의 예전 뉴스예요"
           >
             <FilteredReasonChart data={stats.filtered} />
           </StatCard>
