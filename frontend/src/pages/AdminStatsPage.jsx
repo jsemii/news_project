@@ -127,7 +127,10 @@ export default function AdminStatsPage() {
           <StatCard title="최근 14일 일별 수집 건수">
             <DailyCollectionChart data={stats.dailyCollection} />
           </StatCard>
-          <StatCard title="직무별 평균 중요도 점수">
+          <StatCard
+            title="직무별 평균 중요도 점수"
+            subtitle="importance_score > 0인 뉴스만 집계(과거 미분석 데이터의 기본값 0은 제외)"
+          >
             <JobScoreChart data={stats.jobScores} />
           </StatCard>
           <StatCard title="필터링 사유별 건수">
