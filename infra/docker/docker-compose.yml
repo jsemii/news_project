@@ -42,6 +42,15 @@ services:
       DB_HOST: db
       DB_PASSWORD: ${DB_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # GitHub/Google OAuth2 로그인 + 로그인 JWT 서명용 비밀값입니다. GITHUB_*/GOOGLE_*는
+      # 각 서비스에서 발급받은 값, JWT_SECRET은 우리 서버가 자체 발급하는 로그인 토큰
+      # 서명용 무작위 문자열입니다(openssl rand -base64 32 등으로 생성) — 전부 이
+      # .env에만 실제 값이 있고 코드에는 없습니다.
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
     # condition: service_healthy: db 컨테이너가 그냥 "떠있기만" 한 게 아니라 위 healthcheck를
     # 통과할 때까지 기다린 뒤에 backend를 시작합니다. 이게 없으면 Postgres가 아직 접속을 못
     # 받는 상태에서 backend가 먼저 접속을 시도하다가 실패하고 죽을 수 있습니다.

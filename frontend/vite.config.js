@@ -12,6 +12,14 @@ export default defineConfig({
     // (새 라이브러리 불필요).
     proxy: {
       '/api': 'http://localhost:8080',
+      // GitHub/Google 로그인 경로도 같은 이유로 프록시가 필요합니다 — Spring
+      // Security의 기본 경로(/oauth2/authorization/{provider},
+      // /login/oauth2/code/{provider})는 "/api" 밖에 있어서, 이걸 추가하지 않으면
+      // 로컬 개발 서버(vite, 5173)에서 로그인 버튼을 눌러도 backend(8080)가 아니라
+      // vite 자신에게 요청이 가서 404가 납니다(운영 nginx에도 같은 이유로
+      // infra/nginx/default.conf에 동일한 location을 추가했습니다).
+      '/oauth2': 'http://localhost:8080',
+      '/login': 'http://localhost:8080',
     },
   },
 })
