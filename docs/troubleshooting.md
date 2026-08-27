@@ -827,3 +827,77 @@ LLM이 "무관해도 의미를 짜내서 문장을 쓰다 보니, 그 그럴듯�
 위험이 있다. 이런 경우 (1) 두 지시가 서로 다른 필드에 적용된다는 것을 명시하고,
 (2) 가능하면 JSON 스키마/지시 순서 자체를 "엄격한 값 먼저, 관대한 텍스트는 나중"
 순으로 배치하는 것이 프롬프트 문구로 아무리 강조하는 것보다 효과적이었다.
+
+## 30. OAuth2 client-id를 빈 문자열 기본값으로 뒀더니 부팅 자체가 실패함
+#### 현상
+GitHub/Google OAuth2 로그인 인프라를 추가하면서, 아직 사용자가 실제 OAuth
+앱을 등록하기 전에도 서버가 일단 뜨도록 `application.yml`에
+`client-id: ${GITHUB_CLIENT_ID:}`처럼 빈 문자열 기본값을 줬다. 그런데
+`./gradlew bootRun`을 돌리자마자 부팅 자체가 실패했다.
+```
+Caused by: java.lang.IllegalStateException: Client id of registration
+'github' must not be empty.
+    at org.springframework.boot.security.oauth2.client.autoconfigure
+       .OAuth2ClientProperties.validateRegistration
+```
+
+#### 원인
+Spring Boot의 `OAuth2ClientProperties.validateRegistration()`이
+`spring.security.oauth2.client.registration.*`에 등록된 client-id가 빈
+문자열이면 애플리케이션 컨텍스트를 아예 못 띄우게 하드코딩되어 있다.
+`${VAR:}` 형태의 빈 기본값 문법으로는 이 검증을 우회할 수 없다 — Spring
+프로퍼티 자체는 빈 문자열로 정상 주입되지만, 그 값을 검증하는 쪽이 별도로
+막는 구조라서 그렇다.
+
+#### 해결
+빈 기본값 문법을 버리고 `client-id: ${GITHUB_CLIENT_ID}`처럼 필수 값으로
+되돌렸다(이미 있던 `DB_PASSWORD`/`OPENAI_API_KEY`와 동일한 패턴). 즉
+`spring.security.oauth2.client.registration.*`가 `application.yml`에 존재하는
+순간부터, GitHub/Google OAuth 앱을 실제로 등록해서 값을 채우기 전까지는
+로컬에서도 서버를 아예 못 띄운다 — "일단 껍데기만 띄워보고 나중에 값 채우기"는
+이 설정에서는 불가능하다는 것을 미리 알아두면 좋다.
+
+## 31. 로컬 Docker Compose로 nginx를 새로 띄우면 SSL 인증서가 없어서 죽음
+#### 현상
+OAuth2 로그인 라우팅(`/oauth2/`, `/login/` location)을 nginx 설정에 추가한 뒤,
+로컬에서 `docker compose up --build -d`로 전체 스택(db+backend+nginx)을 처음부터
+새로 띄웠더니 `backend`/`db`는 healthy로 떴는데 `nginx`만 목록에 없었다.
+`docker compose ps -a`로 보니 `news-briefing-nginx`가 `Exited (1)`이었고,
+`docker compose logs nginx`에 아래 에러가 있었다.
+```
+nginx: [emerg] cannot load certificate
+"/etc/letsencrypt/live/newsbriefing.duckdns.org/fullchain.pem":
+BIO_new_file() failed (SSL: error:80000002:system library::No such file or
+directory: ... no such file)
+```
+
+#### 원인
+이건 이번 OAuth2 작업이 만든 문제가 아니라, 그 전에 이미 merge된 HTTPS
+적용 작업이 원래부터 갖고 있던 한계가 처음으로 드러난 것이다.
+`infra/nginx/default.conf`의 443 서버 블록은 `ssl_certificate`/
+`ssl_certificate_key`로 Let's Encrypt 인증서 경로를 참조하는데, 이 파일은
+`certbot-etc`라는 Docker named volume 안에 있다. 운영(EC2)에서는 이 볼륨에
+실제 `certbot certonly` 실행 결과가 들어있지만, **named volume은 환경마다
+독립적**이라 로컬에서 `docker compose up`을 하면 같은 이름이라도 완전히
+새로운 빈 볼륨이 생성된다(`Volume docker_certbot-etc Creating` 로그로 확인).
+즉 로컬에는 인증서 파일 자체가 없고, nginx는 `listen ... ssl` 블록이 있으면
+설정 로드 시점에 인증서 파일을 못 열면 무조건 기동 자체를 거부한다.
+
+#### 해결
+로컬에서 nginx까지 포함한 전체 스택을 SSL과 함께 띄우는 건 별도의 로컬 인증서
+발급 없이는 원천적으로 불가능하다고 판단하고, 이번 작업 범위에서는 시도하지
+않기로 했다. 대신:
+- nginx 설정 자체의 문법 오류 여부는 `docker compose logs nginx`에 찍힌
+  "Configuration complete" 로그로 확인했다(인증서 로드 단계 이전까지는
+  정상 통과했다는 뜻).
+- OAuth2/JWT 로직 자체의 동작 검증은 기존처럼 `./gradlew bootRun` +
+  `npm run dev`(vite 프록시 경유, nginx 없이 backend에 직접 접근)로 진행했다.
+- nginx 경유 라우팅이 실제로 맞는지(즉 `/oauth2/`, `/login/` location이 배포
+  환경에서 정말 backend까지 도달하는지)는 EC2 실제 배포 후 확인하기로 미뤘다.
+
+앞으로 참고할 점: 이 프로젝트에서 로컬 `docker compose up`으로 nginx까지 포함한
+전체 스택을 새로 띄우는 시나리오는 SSL 인증서가 없어서 항상 실패한다. 로컬에서
+nginx 라우팅 자체를 검증해야 하는 상황이 생기면, (1) 로컬 전용 자체 서명
+인증서를 만들어 별도 override 설정으로 대체하거나, (2) 아예 HTTP(80)만 쓰는
+로컬 전용 nginx 설정을 만드는 방법을 먼저 검토해야 한다 — 지금 구조로는 둘 중
+하나 없이는 로컬에서 nginx가 뜨지 않는다.
