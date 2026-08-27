@@ -1,0 +1,74 @@
+/* LoginModal: <dialog> 자체는 padding/border 없이 패널 크기와 정확히 겹치게
+   비워둡니다 — 그래야 배경 클릭 판정(event.target === dialog)이 "패널 바로
+   바깥"부터 정확히 시작합니다. 실제 테두리/배경/그림자는 안쪽 .login-modal__panel이
+   전부 담당합니다. */
+
+.login-modal {
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: var(--shadow);
+  max-width: 360px;
+  width: calc(100% - 32px);
+}
+
+.login-modal::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.login-modal__panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 24px 24px;
+}
+
+.login-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.login-modal__close:hover {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.login-modal__title {
+  margin: 0 0 18px;
+  font-size: 18px;
+}
+
+.login-modal__providers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-modal__provider {
+  display: block;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 16px;
+  color: var(--text);
+  background: var(--surface);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.login-modal__provider:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}

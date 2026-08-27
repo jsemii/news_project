@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import { fetchCurrentUser, logout } from "../api/authApi";
+import { navigate } from "../hooks/useRoute";
+import LoginModal from "./LoginModal";
 import "./AuthStatus.css";
 
 // [전체 흐름에서의 위치] BriefingPage 맨 위(제목보다도 위)에 놓이는 로그인 상태
 // 표시줄입니다. 마운트 시 GET /api/auth/me로 로그인 상태를 확인해서, 로그인
-// 상태면 이름과 로그아웃 버튼을, 아니면 GitHub/Google 로그인 버튼 두 개를
-// 보여줍니다. 로그인 버튼이 <a href>인 이유: OAuth2 로그인은 실제 브라우저
-// 이동(리다이렉트 왕복)이어야 동작합니다 — fetch로는 GitHub/Google의 로그인
-// 화면 자체를 보여줄 수 없습니다.
+// 상태면 이름·(관리자라면 관리자 통계 링크도)·로그아웃 버튼을, 아니면 "로그인"
+// 버튼 하나를 보여줍니다. "로그인" 버튼은 클릭하면 GitHub/Google 두 옵션이 담긴
+// LoginModal을 엽니다(실제 로그인 이동 자체는 그 모달 안의 <a href>가 담당 —
+// OAuth2 로그인은 실제 브라우저 이동이어야 동작하므로 fetch로는 처리할 수
+// 없습니다).
 export default function AuthStatus() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isLoginModalOpen, setLoginModalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +57,18 @@ export default function AuthStatus() {
     <div className="auth-status">
       {user ? (
         <>
+          {user.role === "ADMIN" && (
+            <a
+              className="auth-status__admin-link"
+              href="/admin"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/admin");
+              }}
+            >
+              관리자 통계
+            </a>
+          )}
           <span className="auth-status__name">{user.name}님</span>
           <button type="button" className="auth-status__logout" onClick={handleLogout}>
             로그아웃
@@ -60,12 +76,10 @@ export default function AuthStatus() {
         </>
       ) : (
         <>
-          <a className="auth-status__login" href="/oauth2/authorization/github">
-            GitHub로 로그인
-          </a>
-          <a className="auth-status__login" href="/oauth2/authorization/google">
-            Google로 로그인
-          </a>
+          <button type="button" className="auth-status__login" onClick={() => setLoginModalOpen(true)}>
+            로그인
+          </button>
+          <LoginModal open={isLoginModalOpen} onClose={() => setLoginModalOpen(false)} />
         </>
       )}
     </div>
