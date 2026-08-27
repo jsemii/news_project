@@ -1,0 +1,35 @@
+/* AuthStatus: BriefingPage 맨 위의 로그인 상태 표시줄.
+   기존 톤(장식 없이 여백/테두리만으로 구조 구분)을 그대로 따릅니다. */
+
+.auth-status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  min-height: 30px;
+  font-size: 13px;
+}
+
+.auth-status__name {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.auth-status__login,
+.auth-status__logout {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  color: var(--text);
+  background: var(--surface);
+  text-decoration: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.auth-status__login:hover,
+.auth-status__logout:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}

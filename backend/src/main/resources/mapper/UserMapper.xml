@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+    [전체 흐름에서의 위치] 로그인 사용자 계정(users 테이블)의 SQL입니다.
+-->
+<mapper namespace="com.jobnews.auth.UserMapper">
+
+    <resultMap id="userResultMap" type="com.jobnews.auth.User">
+        <id column="id" property="id"/>
+        <result column="provider" property="provider"/>
+        <result column="provider_id" property="providerId"/>
+        <result column="email" property="email"/>
+        <result column="name" property="name"/>
+        <!-- role은 MyBatis 기본 EnumTypeHandler가 자동으로 처리합니다(VARCHAR <-> Role.name()). -->
+        <result column="role" property="role"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <select id="selectByProviderAndProviderId" resultMap="userResultMap">
+        SELECT id, provider, provider_id, email, name, role, created_at
+        FROM users
+        WHERE provider = #{provider} AND provider_id = #{providerId}
+    </select>
+
+    <!--
+        useGeneratedKeys + keyProperty="id": INSERT 실행 후 DB가 채운 BIGSERIAL 값을
+        MyBatis가 다시 읽어와서 파라미터로 넘긴 User 객체의 id 필드에 그대로 채워줍니다.
+        UserProvisioningService가 이 id를 곧바로 JWT 클레임에 담아야 해서 필요합니다.
+    -->
+    <insert id="insertUser" parameterType="com.jobnews.auth.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (provider, provider_id, email, name)
+        VALUES (#{provider}, #{providerId}, #{email}, #{name})
+    </insert>
+
+</mapper>
