@@ -78,4 +78,18 @@ public class StatsController {
     public List<FilteredReasonStatItem> filtered() {
         return statsMapper.selectFilteredReasonCounts();
     }
+
+    // [무엇을 받아서] 파라미터 없음.
+    // [무엇을 하고] 오늘을 포함한 최근 14일간의 일별 회원가입 추이를 provider별로
+    //              조회합니다.
+    // [무엇을 돌려주는지] 날짜 오름차순 14개 항목의 목록(가입이 0건인 날짜도 포함).
+    @GetMapping("/signups")
+    @Operation(
+            summary = "최근 14일 일별 회원가입 추이",
+            description = "오늘 포함 최근 14일을 항상 14개 항목으로 반환합니다(가입 0건인 날짜도 포함). "
+                    + "항목마다 githubCount/googleCount로 provider별 가입자 수를 구분해서 내려줍니다."
+    )
+    public List<SignupStatItem> signups() {
+        return statsMapper.selectDailySignupCounts();
+    }
 }

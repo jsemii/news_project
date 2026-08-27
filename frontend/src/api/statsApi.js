@@ -49,3 +49,15 @@ export async function fetchFilteredStats() {
   }
   return response.json();
 }
+
+// [무엇을 받아서] 아무것도 받지 않습니다.
+// [무엇을 하고] GET /api/stats/signups를 호출합니다. 오늘 포함 최근 14일치를
+//              항상 14개 항목으로 받습니다(가입 0건인 날짜도 포함).
+// [무엇을 돌려주는지] 날짜별 provider별 가입자 수 목록({ date, githubCount, googleCount }[]).
+export async function fetchSignupStats() {
+  const response = await fetch("/api/stats/signups");
+  if (!response.ok) {
+    throw new Error(`가입 추이 통계를 불러오지 못했습니다. (status: ${response.status})`);
+  }
+  return response.json();
+}

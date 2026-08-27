@@ -105,4 +105,33 @@
         ORDER BY cnt DESC
     </select>
 
+    <resultMap id="signupStatMap" type="com.jobnews.stats.SignupStatItem">
+        <constructor>
+            <idArg column="signup_date" javaType="java.time.LocalDate"/>
+            <arg column="github_count" javaType="java.lang.Long"/>
+            <arg column="google_count" javaType="java.lang.Long"/>
+        </constructor>
+    </resultMap>
+
+    <!--
+        selectDailyCollectionCounts와 같은 이유로 generate_series를 기준(FROM)에
+        두고 users를 LEFT JOIN합니다 — 가입이 0건인 날짜도 행이 반드시 생기게 해서
+        항상 14개 점을 돌려줍니다. count(u.id) FILTER (WHERE ...)로 provider별
+        건수를 한 행에 같이 뽑으면, UNION이나 LEFT JOIN을 두 번 안 해도 프론트가
+        막대 하나로 바로 그릴 수 있는 { date, githubCount, googleCount } 형태가
+        됩니다. FILTER 안에서도 count(u.id)를 쓰는 이유는 count(*)와 동일합니다 —
+        그 날짜에 해당 provider 가입자가 없으면(u의 모든 컬럼이 NULL) count(*)는
+        행 자체를 세어버려 0이어야 할 값이 1로 나오지만, count(u.id)는 NULL을
+        세지 않으므로 정확히 0이 됩니다.
+    -->
+    <select id="selectDailySignupCounts" resultMap="signupStatMap">
+        SELECT gs.day::date AS signup_date,
+               count(u.id) FILTER (WHERE u.provider = 'github') AS github_count,
+               count(u.id) FILTER (WHERE u.provider = 'google') AS google_count
+        FROM generate_series(current_date - interval '13 days', current_date, interval '1 day') AS gs(day)
+        LEFT JOIN users u ON u.created_at::date = gs.day
+        GROUP BY gs.day
+        ORDER BY gs.day
+    </select>
+
 </mapper>

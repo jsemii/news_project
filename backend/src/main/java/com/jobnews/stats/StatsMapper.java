@@ -38,4 +38,12 @@ public interface StatsMapper {
     // [무엇을 하고] news_filtered_out을 reason별로 묶어 건수를 셉니다.
     // [무엇을 돌려주는지] 필터링 사유별 건수 목록(건수 내림차순).
     List<FilteredReasonStatItem> selectFilteredReasonCounts();
+
+    // [무엇을 받아서] 파라미터 없음(항상 "오늘 포함 최근 14일" 고정 범위).
+    // [무엇을 하고] users를 created_at 날짜별로 묶어 provider(github/google)별
+    //              가입자 수를 셉니다. 가입이 0건인 날짜도 빠뜨리지 않고 항상
+    //              14행을 돌려줍니다(selectDailyCollectionCounts와 같은 이유 —
+    //              StatsMapper.xml 참고).
+    // [무엇을 돌려주는지] 날짜 오름차순 14개 항목의 목록.
+    List<SignupStatItem> selectDailySignupCounts();
 }

@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { fetchCurrentUser } from "../api/authApi";
-import { fetchDailyCollectionStats, fetchFilteredStats, fetchIndustryStats, fetchJobScoreStats } from "../api/statsApi";
+import {
+  fetchDailyCollectionStats,
+  fetchFilteredStats,
+  fetchIndustryStats,
+  fetchJobScoreStats,
+  fetchSignupStats,
+} from "../api/statsApi";
 import { navigate } from "../hooks/useRoute";
 import StatCard from "../components/StatCard";
 import IndustryPieChart from "../components/IndustryPieChart";
 import DailyCollectionChart from "../components/DailyCollectionChart";
 import JobScoreChart from "../components/JobScoreChart";
 import FilteredReasonChart from "../components/FilteredReasonChart";
+import SignupChart from "../components/SignupChart";
 import "./AdminStatsPage.css";
 
 // [전체 흐름에서의 위치] 관리자 전용 통계 대시보드 화면입니다. "/admin" 경로로
@@ -66,10 +73,16 @@ export default function AdminStatsPage() {
     setLoading(true);
     setError(null);
 
-    Promise.all([fetchIndustryStats(), fetchDailyCollectionStats(), fetchJobScoreStats(), fetchFilteredStats()])
-      .then(([industries, dailyCollection, jobScores, filtered]) => {
+    Promise.all([
+      fetchIndustryStats(),
+      fetchDailyCollectionStats(),
+      fetchJobScoreStats(),
+      fetchFilteredStats(),
+      fetchSignupStats(),
+    ])
+      .then(([industries, dailyCollection, jobScores, filtered, signups]) => {
         if (!cancelled) {
-          setStats({ industries, dailyCollection, jobScores, filtered });
+          setStats({ industries, dailyCollection, jobScores, filtered, signups });
         }
       })
       .catch((err) => {
@@ -133,8 +146,14 @@ export default function AdminStatsPage() {
           >
             <JobScoreChart data={stats.jobScores} />
           </StatCard>
-          <StatCard title="필터링 사유별 건수">
+          <StatCard
+            title="필터링 사유별 건수"
+            subtitle="TOO_OLD/CONTENT_TOO_SHORT/TITLE_EXCLUDED는 AI 분석 전 규칙 기반으로 걸러진 뉴스, UNKNOWN은 레거시 기본값"
+          >
             <FilteredReasonChart data={stats.filtered} />
+          </StatCard>
+          <StatCard title="최근 14일 일별 회원가입 추이">
+            <SignupChart data={stats.signups} />
           </StatCard>
         </div>
       )}
