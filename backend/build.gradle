@@ -32,6 +32,16 @@ dependencies {
 	// PostgreSQL 지원이 별도 아티팩트로 분리됨).
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.flywaydb:flyway-database-postgresql'
+	// GitHub/Google OAuth2 로그인(Spring Security OAuth2 Client)에 필요합니다. 이
+	// 스타터가 spring-boot-starter-security를 전이 의존성으로 함께 가져오므로, 그것과
+	// 별도로 security starter를 추가하지 않습니다(./gradlew dependencies로 실제 확인함).
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// JJWT: 로그인 성공 시 우리 서버가 자체 발급하는 JWT(HttpOnly 쿠키에 담아 로그인
+	// 상태 유지)를 만들고 검증하는 데 씁니다. jjwt-api는 컴파일 시점 의존성, jjwt-impl/
+	// jjwt-jackson은 실제 서명·직렬화 구현체라 runtimeOnly로 충분합니다(공식 권장 구성).
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
