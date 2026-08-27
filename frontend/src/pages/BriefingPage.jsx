@@ -3,6 +3,7 @@ import { fetchBriefings } from "../api/briefingApi";
 import JobSelector from "../components/JobSelector";
 import DateNavigator from "../components/DateNavigator";
 import DailyHighlight from "../components/DailyHighlight";
+import AuthStatus from "../components/AuthStatus";
 import { getTodayString } from "../utils/dateUtils";
 import "./BriefingPage.css";
 
@@ -80,6 +81,7 @@ export default function BriefingPage() {
   return (
     <main className="briefing-page">
       <header className="briefing-page__header">
+        <AuthStatus />
         <h1 className="briefing-page__title">{title}</h1>
         <p className="briefing-page__subtitle">
           관심 직무를 선택하면 그 직무 관점에서 뉴스를 다시 읽어드립니다.
