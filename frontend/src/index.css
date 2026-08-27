@@ -12,6 +12,21 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
+  /* 관리자 통계 대시보드의 산업별 파이 차트 전용 색상입니다(ai.industries의
+     8개 산업과 정확히 1:1로 고정 배정 — IndustryPieChart.jsx 참고). 이 차트만
+     색이 "어떤 산업인지"를 나타내는 정체성 역할을 하기 때문에(다른 차트들은
+     막대/선의 위치·라벨만으로 이미 구분되므로 기존 --accent 하나로 충분합니다),
+     색약 사용자도 인접한 두 조각을 구분할 수 있도록 색상환에서 고르게 떨어뜨린
+     8색 팔레트를 새로 정의합니다. */
+  --chart-cat-1: #2a78d6;
+  --chart-cat-2: #eb6834;
+  --chart-cat-3: #1baf7a;
+  --chart-cat-4: #eda100;
+  --chart-cat-5: #e87ba4;
+  --chart-cat-6: #008300;
+  --chart-cat-7: #4a3aa7;
+  --chart-cat-8: #e34948;
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
@@ -45,6 +60,17 @@
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+    /* 라이트 모드와 같은 순서/식별성을 유지하되, 어두운 배경(--surface)에서도
+       충분히 밝게 보이도록 조정한 값입니다. */
+    --chart-cat-1: #3987e5;
+    --chart-cat-2: #d95926;
+    --chart-cat-3: #199e70;
+    --chart-cat-4: #c98500;
+    --chart-cat-5: #d55181;
+    --chart-cat-6: #2fa32f;
+    --chart-cat-7: #9085e9;
+    --chart-cat-8: #e66767;
   }
 
   #social .button-icon {
