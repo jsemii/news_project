@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { fetchBriefings } from "../api/briefingApi";
+import { addScrap, fetchMyScraps, removeScrap } from "../api/scrapApi";
 import JobSelector from "../components/JobSelector";
 import DateNavigator from "../components/DateNavigator";
 import DailyHighlight from "../components/DailyHighlight";
 import AuthStatus from "../components/AuthStatus";
+import LoginModal from "../components/LoginModal";
+import ScrapButton from "../components/ScrapButton";
 import { getTodayString } from "../utils/dateUtils";
 import "./BriefingPage.css";
 
@@ -32,6 +35,72 @@ export default function BriefingPage() {
   const [briefings, setBriefings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // scrapedNewsIds가 null이면 "아직 확인 전 또는 비로그인"을 뜻합니다(로딩 중에는
+  // 카드에 스크랩 버튼이 항상 빈 상태로 보이다가, 확인되면 실제 상태로 바뀝니다).
+  // fetchMyScraps()가 403(비로그인)을 null로 변환해주므로, 이 값 하나로 로그인
+  // 여부와 스크랩 목록을 동시에 판단합니다 — /api/auth/me를 따로 호출할 필요가 없습니다.
+  const [scrapedNewsIds, setScrapedNewsIds] = useState(null);
+  const [isLoginModalOpen, setLoginModalOpen] = useState(false);
+
+  // 마운트 시 한 번만 내 스크랩 목록을 불러옵니다. 로그인은 OAuth2 리다이렉트
+  // 왕복(실제 페이지 이동)으로만 이뤄지므로, 로그인 성공 시 앱이 통째로 다시
+  // 로드되면서 이 useEffect도 다시 실행됩니다 — SPA 안에서 로그인 상태 변화를
+  // 별도로 감지할 필요가 없습니다(AuthStatus가 마운트 시 한 번만 확인하는 것과
+  // 같은 이유).
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchMyScraps()
+      .then((scraps) => {
+        if (!cancelled) {
+          setScrapedNewsIds(scraps === null ? null : new Set(scraps.map((s) => s.newsId)));
+        }
+      })
+      .catch(() => {
+        // 조용히 무시합니다: 스크랩 상태 확인 실패가 브리핑 화면 자체를 막을
+        // 이유는 없습니다(스크랩 버튼이 전부 빈 상태로 보이는 정도로 충분).
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // [무엇을 받아서] 스크랩 버튼을 누른 뉴스의 id.
+  // [무엇을 하고] scrapedNewsIds가 null이면(비로그인) 로그인 모달을 엽니다. 아니면
+  //              현재 스크랩 여부에 따라 추가/취소 API를 호출하고, 응답이 온 뒤에
+  //              (낙관적 업데이트 없이 — AuthStatus의 로그아웃과 같은 관례) 로컬
+  //              Set을 갱신합니다.
+  // [무엇을 돌려주는지] 없음.
+  function handleToggleScrap(newsId) {
+    if (scrapedNewsIds === null) {
+      setLoginModalOpen(true);
+      return;
+    }
+
+    if (scrapedNewsIds.has(newsId)) {
+      removeScrap(newsId)
+        .then(() => {
+          setScrapedNewsIds((prev) => {
+            const next = new Set(prev);
+            next.delete(newsId);
+            return next;
+          });
+        })
+        .catch(() => {
+          // 실패해도 화면을 막지 않습니다 — 버튼 상태가 그대로 유지되어 다시
+          // 시도할 수 있습니다.
+        });
+    } else {
+      addScrap(newsId)
+        .then(() => {
+          setScrapedNewsIds((prev) => new Set(prev).add(newsId));
+        })
+        .catch(() => {
+          // 위와 같은 이유로 조용히 무시합니다.
+        });
+    }
+  }
 
   // selectedJob이나 selectedDate가 바뀔 때마다(탭을 누르거나 날짜를 이동/선택할 때마다)
   // 서버에서 다시 목록을 받아옵니다. 둘은 서로 독립적인 state라서, 예를 들어 "IT전산" +
@@ -102,20 +171,38 @@ export default function BriefingPage() {
 
       <ul className="briefing-list">
         {briefings.map((item) => (
-          <BriefingCard key={item.newsId} item={item} />
+          <BriefingCard
+            key={item.newsId}
+            item={item}
+            isScraped={scrapedNewsIds?.has(item.newsId) ?? false}
+            onToggleScrap={() => handleToggleScrap(item.newsId)}
+          />
         ))}
       </ul>
+
+      <LoginModal
+        open={isLoginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        message="로그인 후 이용하십시오."
+      />
     </main>
   );
 }
 
 // [무엇을 받아서] 브리핑 항목 하나(BriefingItem 응답 그대로: title/url/summary/
-//              importanceScore/industries/jobInsight).
+//              importanceScore/industries/jobInsight), 이 뉴스가 지금 스크랩돼
+//              있는지(isScraped), 스크랩 버튼을 눌렀을 때 호출할 콜백(onToggleScrap —
+//              로그인 여부 판단과 실제 API 호출은 전부 부모(BriefingPage)가 담당하고,
+//              이 컴포넌트는 그 결과만 받아서 보여줍니다).
 // [무엇을 하고] 항상 보이는 공통 정보(제목/날짜/중요도/산업 태그/공통 요약)를 카드로
 //              그리고, jobInsight가 있으면(직무를 선택한 경우) "왜 중요한가"/"핵심 역량"
-//              섹션을 라벨로 구분해서 추가로 보여줍니다.
+//              섹션을 라벨로 구분해서 추가로 보여줍니다. 스크랩 버튼은 산업 배지가
+//              있는 줄(.briefing-card__meta)의 맨 마지막(날짜 다음)에 둡니다 —
+//              그 줄은 이미 날짜가 margin-left:auto로 오른쪽 끝에 붙어있어서, 버튼을
+//              날짜 뒤에 추가하는 것만으로 CSS 변경 없이 줄의 오른쪽 끝에 위치하고,
+//              제목 줄에 따로 있는 ⭐(isJobHighlighted)와도 겹치지 않습니다.
 // [무엇을 돌려주는지] 카드 하나(li 엘리먼트).
-function BriefingCard({ item }) {
+function BriefingCard({ item, isScraped, onToggleScrap }) {
   const keySkillTags = item.jobInsight?.keySkills
     ? item.jobInsight.keySkills.split(",").map((skill) => skill.trim()).filter(Boolean)
     : [];
@@ -130,6 +217,7 @@ function BriefingCard({ item }) {
           </span>
         ))}
         <span className="briefing-card__date">{formatDate(item.publishedAt)}</span>
+        <ScrapButton isScraped={isScraped} onClick={onToggleScrap} />
       </div>
 
       <a className="briefing-card__title" href={item.url}>
