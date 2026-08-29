@@ -1,0 +1,156 @@
+/* MyReportPage: BriefingPage/AdminStatsPage와 같은 톤(장식 없이 여백/테두리로
+   구조 구분)을 따릅니다. 기본 #root 폭(880px)을 그대로 씁니다 — 요약 카드 3개 +
+   차트 1개 + 목록 1개인 단일 컬럼 구성이라 AdminStatsPage처럼 폭을 넓힐 필요가
+   없습니다. */
+
+.my-report-page {
+  padding: 32px 20px 64px;
+  text-align: left;
+}
+
+.my-report-page__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.my-report-page__title {
+  font-size: 28px;
+  margin: 0;
+}
+
+.my-report-page__back {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.my-report-page__back:hover {
+  text-decoration: underline;
+}
+
+.my-report-page--denied {
+  padding-top: 64px;
+  text-align: center;
+  color: var(--text);
+}
+
+.my-report-page__empty {
+  color: var(--text);
+  padding: 24px 0;
+}
+
+/* 요약 카드 3개(총 스크랩 / 관심 산업 수 / 최다 관심 산업) — 숫자 자체는 이미
+   불러온 두 응답(scraps/industryStats)에서 그냥 length/첫 항목을 읽는 것뿐이라
+   별도 API 없이 채워집니다. */
+.my-report-page__summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.my-report-page__summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.my-report-page__summary-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-report-page__summary-label {
+  font-size: 12px;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .my-report-page__summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.my-report-page__section {
+  margin-bottom: 32px;
+}
+
+.my-report-page__section-title {
+  font-size: 16px;
+  margin: 0 0 12px;
+  color: var(--text-h);
+}
+
+.my-report-page__chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  height: 260px;
+}
+
+/* 최근 스크랩 목록 (RecentScrapsList가 쓰는 클래스들) */
+.my-report-page__scrap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-report-page__scrap-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.my-report-page__scrap-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  text-decoration: none;
+  margin-bottom: 8px;
+}
+
+.my-report-page__scrap-title:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.my-report-page__scrap-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.my-report-page__scrap-tag {
+  color: var(--text);
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+.my-report-page__scrap-date {
+  color: var(--text);
+  margin-left: auto;
+}
+
+.my-report-page__empty-list {
+  color: var(--text);
+}

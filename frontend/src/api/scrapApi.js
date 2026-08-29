@@ -53,3 +53,20 @@ export async function removeScrap(newsId) {
     throw new Error(`스크랩 취소에 실패했습니다. (status: ${response.status})`);
   }
 }
+
+// [무엇을 받아서] 아무것도 받지 않습니다.
+// [무엇을 하고] GET /api/scraps/industries를 호출합니다. 403(비로그인)이면
+//              fetchMyScraps와 같은 이유로 조용히 null을 돌려줍니다.
+// [무엇을 돌려주는지] 로그인 상태면 산업별 건수 목록({ industry, count }[]), 아니면 null.
+export async function fetchScrapIndustryStats() {
+  const response = await fetch("/api/scraps/industries");
+
+  if (response.status === 403) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`관심 산업 통계를 불러오지 못했습니다. (status: ${response.status})`);
+  }
+
+  return response.json();
+}
