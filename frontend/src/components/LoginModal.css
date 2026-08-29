@@ -50,6 +50,12 @@
   font-size: 18px;
 }
 
+.login-modal__message {
+  margin: -10px 0 18px;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .login-modal__providers {
   display: flex;
   flex-direction: column;

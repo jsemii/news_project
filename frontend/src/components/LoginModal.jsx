@@ -9,7 +9,10 @@ import "./LoginModal.css";
 // 해결돼서, 직접 오버레이를 만드는 것보다 코드가 훨씬 적게 듭니다.
 //
 // [무엇을 받아서] open(모달을 열지 여부), onClose(모달이 닫힐 때 호출할 콜백 —
-//              Escape/배경 클릭/닫기 버튼 전부 이 콜백 하나로 귀결됩니다).
+//              Escape/배경 클릭/닫기 버튼 전부 이 콜백 하나로 귀결됩니다), message
+//              (선택, 제목 아래에 보여줄 안내 문구 — 예: 로그인이 필요한 동작을
+//              하려다 이 모달이 뜬 경우 "로그인 후 이용하십시오"처럼 왜 떴는지
+//              설명. 생략하면 아무것도 안 보여줌).
 // [무엇을 하고] open 값이 바뀔 때마다 실제 <dialog> DOM을 그 값에 맞게
 //              showModal()/close()로 동기화합니다. <dialog>가 어떤 방식으로든
 //              닫히면(Escape 포함) 브라우저가 "close" 이벤트를 쏴주므로, 그
@@ -18,7 +21,7 @@ import "./LoginModal.css";
 //              동기화 지점은 한 곳뿐입니다.
 // [무엇을 돌려주는지] 모달 UI(JSX). open이 false여도 컴포넌트 자체는 항상
 //              마운트돼 있습니다(<dialog>가 열려있지 않을 뿐).
-export default function LoginModal({ open, onClose }) {
+export default function LoginModal({ open, onClose, message }) {
   const dialogRef = useRef(null);
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export default function LoginModal({ open, onClose }) {
           ×
         </button>
         <h2 className="login-modal__title">로그인</h2>
+        {message && <p className="login-modal__message">{message}</p>}
         <div className="login-modal__providers">
           <a className="login-modal__provider" href="/oauth2/authorization/github">
             GitHub로 로그인
