@@ -16,12 +16,14 @@
   font-weight: 600;
 }
 
-.auth-status__admin-link {
+.auth-status__admin-link,
+.auth-status__report-link {
   color: var(--accent);
   text-decoration: none;
 }
 
-.auth-status__admin-link:hover {
+.auth-status__admin-link:hover,
+.auth-status__report-link:hover {
   text-decoration: underline;
 }
 

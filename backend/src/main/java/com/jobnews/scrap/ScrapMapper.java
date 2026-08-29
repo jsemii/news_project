@@ -39,7 +39,20 @@ public interface ScrapMapper {
     int deleteScrap(@Param("userId") Long userId, @Param("newsId") Long newsId);
 
     // [무엇을 받아서] 사용자 id.
-    // [무엇을 하고] 그 사용자의 스크랩 전체를 최신순으로 조회합니다.
-    // [무엇을 돌려주는지] 스크랩 목록(비어있으면 빈 리스트 — 에러 아님).
-    List<ScrapItem> selectByUser(@Param("userId") Long userId);
+    // [무엇을 하고] 그 사용자의 스크랩을 news/news_industry와 조인해서 제목/URL/
+    //              발행일/산업 태그까지 함께 최신순으로 조회합니다("내 리포트"
+    //              페이지의 최근 스크랩 목록 재료).
+    // [무엇을 돌려주는지] 스크랩 행 목록(비어있으면 빈 리스트 — 에러 아님). CSV로
+    //              합쳐진 산업 문자열을 List로 쪼개는 것은 ScrapController가 합니다.
+    List<ScrapRow> selectByUser(@Param("userId") Long userId);
+
+    // [무엇을 받아서] 사용자 id.
+    // [무엇을 하고] 그 사용자가 스크랩한 뉴스들을 news_industry와 조인해서 산업별
+    //              건수를 셉니다. 뉴스 1건이 산업을 여러 개 가질 수 있어서(다대다),
+    //              그런 뉴스를 스크랩하면 여러 산업 카운트에 동시에 기여합니다 —
+    //              관리자 통계(StatsMapper.selectIndustryCounts)와 같은 집계 방식이라
+    //              의도된 동작입니다. 한 번도 스크랩 안 한 산업은 결과에 아예 안
+    //              나옵니다(시계열이 아니라 개인 랭킹이라 0건 채우기가 필요 없음).
+    // [무엇을 돌려주는지] 산업별 건수 목록(건수 내림차순), 스크랩이 없으면 빈 리스트.
+    List<ScrapIndustryStatItem> selectIndustryCountsByUser(@Param("userId") Long userId);
 }

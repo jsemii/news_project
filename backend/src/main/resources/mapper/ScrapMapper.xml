@@ -34,19 +34,57 @@
         WHERE user_id = #{userId} AND news_id = #{newsId}
     </delete>
 
-    <resultMap id="scrapItemMap" type="com.jobnews.scrap.ScrapItem">
+    <resultMap id="scrapRowMap" type="com.jobnews.scrap.ScrapRow">
+        <result column="id" property="id"/>
+        <result column="news_id" property="newsId"/>
+        <result column="title" property="title"/>
+        <result column="url" property="url"/>
+        <result column="published_at" property="publishedAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="industries_csv" property="industriesCsv"/>
+    </resultMap>
+
+    <!-- BriefingMapper.selectTopBriefings와 같은 기법입니다 — news_industry는
+         LEFT JOIN + string_agg(콤마로 이어붙이는 PostgreSQL 집계 함수)로 한 줄
+         문자열로 합쳐서, 뉴스 1건에 산업이 여러 개 붙어도 결과 행이 스크랩 1건당
+         1행으로 유지되게 합니다(GROUP BY 필요). news는 LEFT가 아니라 JOIN(INNER)을
+         쓰는데, scraps.news_id는 NOT NULL FK라 항상 뉴스가 존재하기 때문입니다. -->
+    <select id="selectByUser" resultMap="scrapRowMap">
+        SELECT s.id AS id,
+               s.news_id AS news_id,
+               s.created_at AS created_at,
+               n.title AS title,
+               n.url AS url,
+               n.published_at AS published_at,
+               string_agg(DISTINCT ni.industry, ',') AS industries_csv
+        FROM scraps s
+        JOIN news n ON n.id = s.news_id
+        LEFT JOIN news_industry ni ON ni.news_id = n.id
+        WHERE s.user_id = #{userId}
+        GROUP BY s.id, s.news_id, s.created_at, n.title, n.url, n.published_at
+        ORDER BY s.created_at DESC
+    </select>
+
+    <resultMap id="scrapIndustryStatMap" type="com.jobnews.scrap.ScrapIndustryStatItem">
         <constructor>
-            <idArg column="id" javaType="java.lang.Long"/>
-            <arg column="news_id" javaType="java.lang.Long"/>
-            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <idArg column="industry" javaType="java.lang.String"/>
+            <arg column="cnt" javaType="java.lang.Long"/>
         </constructor>
     </resultMap>
 
-    <select id="selectByUser" resultMap="scrapItemMap">
-        SELECT id, news_id, created_at
-        FROM scraps
-        WHERE user_id = #{userId}
-        ORDER BY created_at DESC
+    <!-- 뉴스 1건이 산업을 여러 개 가질 수 있어서(news_industry는 다대다), 산업이
+         2개 태깅된 뉴스를 스크랩하면 이 쿼리 결과에서 두 산업 카운트에 각각 +1씩
+         기여합니다 — StatsMapper.selectIndustryCounts(전체 뉴스 기준 집계)와 같은
+         방식이라 의도된 동작입니다. INNER JOIN을 쓰는 이유: 산업 태그가 하나도
+         없는 뉴스를 스크랩했다면 그 스크랩은 이 집계에 아예 안 나오는 게 맞고
+         (집계 대상이 "산업"이므로), LEFT JOIN으로 굳이 포함시킬 이유가 없습니다. -->
+    <select id="selectIndustryCountsByUser" resultMap="scrapIndustryStatMap">
+        SELECT ni.industry AS industry, count(*) AS cnt
+        FROM scraps s
+        JOIN news_industry ni ON ni.news_id = s.news_id
+        WHERE s.user_id = #{userId}
+        GROUP BY ni.industry
+        ORDER BY cnt DESC
     </select>
 
 </mapper>

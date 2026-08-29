@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -92,19 +93,54 @@ public class ScrapController {
     }
 
     // [무엇을 받아서] 로그인한 사용자 정보.
-    // [무엇을 하고] 그 사용자가 스크랩한 뉴스 전체를 최신순으로 조회합니다.
+    // [무엇을 하고] 그 사용자가 스크랩한 뉴스 전체를 제목/URL/발행일/산업 태그까지
+    //              함께 최신순으로 조회합니다("내 리포트" 페이지의 최근 스크랩
+    //              목록 재료 — BriefingPage는 newsId만 쓰므로 나머지 필드는
+    //              무시해도 기존 사용처가 깨지지 않습니다).
     // [무엇을 돌려주는지] 스크랩 목록(JSON 배열). 하나도 없으면 빈 배열(에러 아님).
     @GetMapping
     @Operation(
             summary = "내 스크랩 목록 조회",
-            description = "로그인한 사용자가 스크랩한 뉴스 id 목록을 최신순으로 반환합니다."
+            description = "로그인한 사용자가 스크랩한 뉴스를 제목/URL/발행일/산업 태그와 함께 최신순으로 반환합니다."
     )
     public List<ScrapItem> list(Authentication authentication) {
         User user = (User) authentication.getPrincipal();
-        return scrapMapper.selectByUser(user.getId());
+        return scrapMapper.selectByUser(user.getId()).stream().map(this::toItem).toList();
     }
 
+    // [무엇을 받아서] 로그인한 사용자 정보.
+    // [무엇을 하고] 그 사용자가 스크랩한 뉴스들을 산업별로 묶어 건수를 셉니다 —
+    //              "어떤 산업에 꾸준히 관심을 가졌는지" 보여주는 위젯의 재료입니다.
+    // [무엇을 돌려주는지] 산업별 건수 목록(건수 내림차순). 스크랩이 없거나 스크랩한
+    //              뉴스에 산업 태그가 하나도 없으면 빈 배열(에러 아님).
+    @GetMapping("/industries")
+    @Operation(
+            summary = "내 스크랩의 산업별 건수",
+            description = "로그인한 사용자가 스크랩한 뉴스를 산업별로 그룹핑한 건수를 건수 내림차순으로 반환합니다. "
+                    + "뉴스 1건이 산업을 여러 개 가지면 스크랩 1건이 여러 산업 카운트에 동시에 기여합니다."
+    )
+    public List<ScrapIndustryStatItem> industries(Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return scrapMapper.selectIndustryCountsByUser(user.getId());
+    }
+
+    // add()/remove()가 쓰는 변환입니다 — 이 두 응답은 "방금 추가/취소된 스크랩"을
+    // 확인시켜주는 목적이라 뉴스 제목 등 부가 정보까지는 필요 없고, 그걸 위해 매번
+    // news를 조인 조회하는 건 낭비입니다(같은 논리로 add()는 이미 createdAt만
+    // 다시 조회합니다). title/url/publishedAt은 null, industries는 빈 리스트로 둡니다.
     private ScrapItem toItem(Scrap scrap) {
-        return new ScrapItem(scrap.getId(), scrap.getNewsId(), scrap.getCreatedAt());
+        return new ScrapItem(scrap.getId(), scrap.getNewsId(), null, null, null,
+                scrap.getCreatedAt(), List.of());
+    }
+
+    // list()가 쓰는 변환입니다 — news/news_industry까지 조인된 행이라 전체 필드가
+    // 채워집니다. industriesCsv(콤마 문자열)를 List로 쪼개는 것은
+    // BriefingController.toItem()과 같은 이유·같은 방식입니다.
+    private ScrapItem toItem(ScrapRow row) {
+        List<String> industries = row.getIndustriesCsv() == null
+                ? List.of()
+                : Arrays.asList(row.getIndustriesCsv().split(","));
+        return new ScrapItem(row.getId(), row.getNewsId(), row.getTitle(), row.getUrl(),
+                row.getPublishedAt(), row.getCreatedAt(), industries);
     }
 }

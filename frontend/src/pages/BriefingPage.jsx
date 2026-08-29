@@ -46,7 +46,9 @@ export default function BriefingPage() {
   // 왕복(실제 페이지 이동)으로만 이뤄지므로, 로그인 성공 시 앱이 통째로 다시
   // 로드되면서 이 useEffect도 다시 실행됩니다 — SPA 안에서 로그인 상태 변화를
   // 별도로 감지할 필요가 없습니다(AuthStatus가 마운트 시 한 번만 확인하는 것과
-  // 같은 이유).
+  // 같은 이유). "내가 관심 가진 산업" 위젯은 별도 페이지(/my-report)로 옮겨져서
+  // 여기서는 더 이상 산업별 통계를 불러오지 않습니다 — 카드의 북마크 아이콘
+  // 상태 판단에 필요한 newsId 목록만 있으면 됩니다.
   useEffect(() => {
     let cancelled = false;
 
