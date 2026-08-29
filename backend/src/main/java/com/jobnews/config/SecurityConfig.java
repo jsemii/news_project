@@ -23,9 +23,13 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
  * JwtAuthenticationFilter가 그 쿠키로 로그인 상태(및 role)를 판단합니다(서버는
  * 세션에 아무것도 저장하지 않습니다 — 배포마다 컨테이너가 재생성돼도 로그인이
  * 유지되는 이유). CSRF를 끈 이유: 이 서비스는 브라우저 폼이 아니라 curl/Swagger로
- * 호출하는 수동 트리거 API(POST /api/structuring/run 등)가 이미 있고, 로그인
- * 사용자가 상태를 바꾸는 기능(스크랩 등)은 아직 없습니다. 그 기능을 만들 때 다시
- * 검토합니다.
+ * 호출하는 수동 트리거 API(POST /api/structuring/run 등)가 이미 있습니다. 스크랩
+ * 기능(POST/DELETE /api/scraps/**)이 로그인 쿠키만으로 상태를 바꾸는 첫 기능이라
+ * CSRF를 다시 검토했는데, 로그인 쿠키(JwtService.COOKIE_NAME)가 이미
+ * SameSite=Lax로 발급되고 있어서(OAuth2LoginSuccessHandler) 다른 사이트에서
+ * fetch/폼으로 이 쿠키를 실어 보내는 요청에는 브라우저가 쿠키를 아예 안 실어줍니다
+ * (Lax는 cross-site POST/DELETE 같은 "안전하지 않은" 요청에는 쿠키를 안 보내고,
+ * 최상위 GET 이동에만 보냅니다). 그래서 CSRF는 계속 꺼둔 채로 두기로 했습니다.
  */
 @Configuration
 public class SecurityConfig {
@@ -80,6 +84,12 @@ public class SecurityConfig {
                         // 매 요청마다 DB를 다시 조회하지 않으므로) — 승격된 사용자는 재로그인해야
                         // 새 JWT로 ADMIN 권한을 실제로 받습니다(Role.java 주석 참고).
                         .requestMatchers("/api/stats/**").hasRole("ADMIN")
+                        // 스크랩은 "누가" 스크랩했는지가 핵심이라 로그인이 필수입니다(ADMIN
+                        // 여부는 상관없음, 일반 회원이면 충분). 비로그인 요청은 컨트롤러에
+                        // 도달하지 못하고, 위 exceptionHandling이 등록한 "/api/**" 공통
+                        // entry point가 403을 돌려줍니다(리다이렉트 아님) — /api/auth/me처럼
+                        // permitAll + 컨트롤러가 직접 401을 만드는 방식과는 다른 경로입니다.
+                        .requestMatchers("/api/scraps/**").authenticated()
                         .anyRequest().permitAll())
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .defaultAuthenticationEntryPointFor(

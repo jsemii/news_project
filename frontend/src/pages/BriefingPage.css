@@ -83,6 +83,22 @@
   margin-left: auto;
 }
 
+.briefing-card__scrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 0;
+}
+
+.briefing-card__scrap:hover {
+  background: var(--accent-bg);
+}
+
 .briefing-card__title {
   display: block;
   font-size: 18px;
